@@ -40,8 +40,9 @@ ENV/
 Thumbs.db
 
 # Large files (handled by Git LFS)
-*.pkl
-*.pth
+# Note: Model files are now committed directly since they're under 100MB
+# *.pkl
+# *.pth
 
 # Logs
 *.log
