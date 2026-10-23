@@ -879,8 +879,10 @@ def show_boiling_point_page():
                                 if mol:
                                     formula = generate_chemical_formula(mol)
                                     
-                                    # 沸点模型路径
-                                    model_dir = r'D:\00全部文件\人工智能赋能化学实验创新赛\徐杰生\沸点预测\模型数据'
+                                    # 沸点模型路径（使用相对路径）
+                                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                                    model_dir = os.path.join(script_dir, 'boiling_models')
+                                    
                                     predictor = BoilingPointPredictor(model_dir)
                                     
                                     result = predictor.predict(formula)
