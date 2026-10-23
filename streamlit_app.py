@@ -975,22 +975,29 @@ def show_boiling_point_page():
 def predict_boiling_point(user_input):
     """预测沸点"""
     try:
-        # 解析用户输入
-        result = resolve_molecule_input(user_input)
-        if result is None:
-            return None
-        smiles, en, cas = result
-        
-        # 如果是化学式选择模式（有多个异构体）
-        if smiles is None and en and en.startswith('CHEMICAL_FORMULA:'):
-            formula = en.replace('CHEMICAL_FORMULA:', '')
-            return {'is_formula_choice': True, 'formula': formula, 'smiles_list': cas}
-        
-        # 生成化学式
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return None
-        formula = generate_chemical_formula(mol)
+        # 首先检查输入是否是SMILES
+        mol = Chem.MolFromSmiles(user_input)
+        if mol is not None:
+            # 输入是SMILES，直接生成化学式
+            smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
+            formula = generate_chemical_formula(mol)
+        else:
+            # 解析用户输入（中文名、英文名、化学式、CAS No）
+            result = resolve_molecule_input(user_input)
+            if result is None:
+                return None
+            smiles, en, cas = result
+            
+            # 如果是化学式选择模式（有多个异构体）
+            if smiles is None and en and en.startswith('CHEMICAL_FORMULA:'):
+                formula = en.replace('CHEMICAL_FORMULA:', '')
+                return {'is_formula_choice': True, 'formula': formula, 'smiles_list': cas}
+            
+            # 生成化学式
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return None
+            formula = generate_chemical_formula(mol)
         
         # 沸点模型路径（使用相对路径）
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -999,10 +1006,15 @@ def predict_boiling_point(user_input):
         predictor = BoilingPointPredictor(model_dir)
         
         result = predictor.predict(formula)
+        if result:
+            result['smiles'] = smiles
+            result['formula'] = formula
         return result
         
     except Exception as e:
-        st.error(f"预测出错: {str(e)}")
+        print(f"预测出错: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
