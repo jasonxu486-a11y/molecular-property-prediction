@@ -1,0 +1,5 @@
+﻿Model,R2_test,MAE_test,RMSE_test
+XGBoost,0.8137,0.69,1.01
+RF,0.7764,0.79,1.11
+MLP,0.7448,0.81,1.19
+Ensemble,0.6564,1.05,1.38
