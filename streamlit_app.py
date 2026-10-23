@@ -999,11 +999,20 @@ def predict_boiling_point(user_input):
                 return None
             formula = generate_chemical_formula(mol)
         
-        # 沸点模型路径（使用相对路径）
+        # 沸点模型路径（使用相对路径，兼容Streamlit Cloud）
         script_dir = os.path.dirname(os.path.abspath(__file__))
         model_dir = os.path.join(script_dir, 'boiling_models')
         
+        # 确保模型目录存在
+        if not os.path.exists(model_dir):
+            print(f"模型目录不存在: {model_dir}")
+            return None
+        
         predictor = BoilingPointPredictor(model_dir)
+        
+        if len(predictor.models) == 0:
+            print("模型未加载")
+            return None
         
         result = predictor.predict(formula)
         if result:
@@ -1027,17 +1036,28 @@ def predict_solubility(user_input):
             return None
         smiles, en, cas = result
         
-        # 水溶解度模型路径（使用相对路径）
+        # 水溶解度模型路径（使用相对路径，兼容Streamlit Cloud）
         script_dir = os.path.dirname(os.path.abspath(__file__))
         model_dir = os.path.join(script_dir, 'solubility_models')
         
+        # 确保模型目录存在
+        if not os.path.exists(model_dir):
+            print(f"模型目录不存在: {model_dir}")
+            return None
+        
         predictor = SolubilityPredictor(model_dir)
+        
+        if predictor.models is None:
+            print("模型未加载")
+            return None
         
         result = predictor.predict(smiles)
         return result
         
     except Exception as e:
-        st.error(f"预测出错: {str(e)}")
+        print(f"预测出错: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
