@@ -262,15 +262,21 @@ class BoilingPointPredictor:
         except Exception as e:
             print(f"⚠ 沸点预测模型加载失败: {e}")
     
-    def predict(self, formula, fold=4):
+    def predict(self, formula, fold=None):
         """预测沸点"""
         try:
             if len(self.models) == 0:
+                print(f"模型未加载，model_dir: {self.model_dir}")
                 return None
+            
+            # 如果没有指定 fold，使用第一个可用的 fold
+            if fold is None:
+                fold = next(iter(self.models.keys()))
             
             # 获取 SMILES
             smiles = self._formula_to_smiles(formula)
             if smiles is None:
+                print(f"化学式 {formula} 无法转换为 SMILES")
                 return None
             
             # 获取特征
@@ -1044,11 +1050,16 @@ def predict_boiling_point(user_input):
         
         predictor = BoilingPointPredictor(model_dir)
         
+        print(f"模型目录: {model_dir}")
+        print(f"模型数量: {len(predictor.models)}")
+        print(f"可用 fold: {list(predictor.models.keys())}")
+        
         if len(predictor.models) == 0:
             print("模型未加载")
             return None
         
         result = predictor.predict(formula)
+        print(f"预测结果: {result}")
         if result:
             result['smiles'] = smiles
             result['formula'] = formula
