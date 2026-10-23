@@ -1054,15 +1054,19 @@ def show_boiling_point_page():
 def predict_boiling_point(user_input):
     """预测沸点"""
     try:
+        print(f"输入: {user_input}")
+        
         # 首先检查输入是否是SMILES
         mol = Chem.MolFromSmiles(user_input)
         if mol is not None:
             # 输入是SMILES，直接生成化学式
             smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
             formula = generate_chemical_formula(mol)
+            print(f"SMILES 输入: {smiles}, 化学式: {formula}")
         else:
             # 解析用户输入（中文名、英文名、化学式、CAS No）
             result = resolve_molecule_input(user_input)
+            print(f"resolve_molecule_input 结果: {result}")
             if result is None:
                 return None
             smiles, en, cas = result
@@ -1075,8 +1079,10 @@ def predict_boiling_point(user_input):
             # 生成化学式
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
+                print(f"SMILES 解析失败: {smiles}")
                 return None
             formula = generate_chemical_formula(mol)
+            print(f"解析结果: SMILES={smiles}, 化学式={formula}")
         
         # 沸点模型路径（使用相对路径，兼容Streamlit Cloud）
         script_dir = os.path.dirname(os.path.abspath(__file__))
