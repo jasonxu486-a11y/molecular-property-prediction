@@ -525,14 +525,14 @@ MOLECULE_MAP = {
 CHEMICAL_FORMULA_MAP = {
     "H2O": ["O"],  # 水
     "CH4": ["C"],  # 甲烷
-    "C2H6O": ["CCO", "CO"],  # 乙醇、甲醇
+    "C2H6O": ["CCO"],  # 乙醇
+    "CH4O": ["CO"],  # 甲醇
     "C2H6": ["CC"],  # 乙烷
     "C3H8": ["CCC"],  # 丙烷
     "C4H10": ["CCCC", "CC(C)C"],  # 丁烷、异丁烷
     "C6H6": ["c1ccccc1"],  # 苯
     "C7H8": ["Cc1ccccc1"],  # 甲苯
     "CH2O": ["C=O"],  # 甲醛
-    "CH4O": ["CO"],  # 甲醇
     "C2H4O": ["CC=O"],  # 乙醛
     "C3H6O": ["CCC(=O)C", "CC(C)C=O", "C(C)C=O"],  # 丙酮等
     "C4H8O2": ["CCOC(=O)C", "CC(C)C(=O)O", "CCC(=O)O"],  # 乙酸乙酯、异丁酸、丁酸
@@ -1074,7 +1074,7 @@ def predict_boiling_point(user_input):
             # 如果是化学式选择模式（有多个异构体）
             if smiles is None and en and en.startswith('CHEMICAL_FORMULA:'):
                 formula = en.replace('CHEMICAL_FORMULA:', '')
-                return {'is_formula_choice': True, 'formula': formula, 'smiles_list': cas}
+                return {'is_formula_choice': True, 'formula': formula, 'smiles_list': smiles_list}
             
             # 生成化学式
             mol = Chem.MolFromSmiles(smiles)
