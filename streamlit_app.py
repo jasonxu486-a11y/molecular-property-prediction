@@ -16,7 +16,23 @@ class SolubilityPredictor:
     """水溶解度预测器 - 使用本地模型文件"""
     
     def __init__(self, model_dir=None):
-        self.model_dir = model_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'solubility_models')
+        # 如果没有指定 model_dir，使用相对路径
+        if model_dir is None:
+            # 尝试多种可能的路径
+            possible_paths = [
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), 'solubility_models'),
+                os.path.join(os.getcwd(), 'solubility_models'),
+                'solubility_models',
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    model_dir = path
+                    break
+            # 如果还是没找到，使用第一个路径（即使不存在）
+            if model_dir is None:
+                model_dir = possible_paths[0]
+        
+        self.model_dir = model_dir
         self.models = None
         self.model_names = None
         self.best_weights = None
@@ -173,7 +189,23 @@ class SolubilityPredictor:
 
 # ==================== 沸点预测模型 ====================
 class BoilingPointPredictor:
-    def __init__(self, model_dir):
+    def __init__(self, model_dir=None):
+        # 如果没有指定 model_dir，使用相对路径
+        if model_dir is None:
+            # 尝试多种可能的路径
+            possible_paths = [
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), 'boiling_models'),
+                os.path.join(os.getcwd(), 'boiling_models'),
+                'boiling_models',
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    model_dir = path
+                    break
+            # 如果还是没找到，使用第一个路径（即使不存在）
+            if model_dir is None:
+                model_dir = possible_paths[0]
+        
         self.model_dir = model_dir
         self.models = {}  # 存储5个fold的模型
         self.char2idx = {}
