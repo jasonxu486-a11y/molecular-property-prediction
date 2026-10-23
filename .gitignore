@@ -39,10 +39,19 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Large files (handled by Git LFS)
-# Note: Model files are now committed directly since they're under 100MB
-# *.pkl
-# *.pth
+# Large files (excluded - need to be downloaded separately)
+solubility_models/logs_best_model_v8_optimized.pkl
+solubility_models/logs_all_models_v8_optimized.pkl
+solubility_models/logs_training_config_v8_optimized.pkl
+boiling_models/lstm_v2_models.pkl
+
+# Keep small files
+!boiling_models/best_lstm_fold*.pth
+!boiling_models/meta_fold*.pkl
+!boiling_models/char2idx_fold*.pkl
+!solubility_models/logs_feature_names*.txt
+!solubility_models/logs_dataset*.csv
+!solubility_models/solubility_metrics_table*.csv
 
 # Logs
 *.log
