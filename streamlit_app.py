@@ -691,9 +691,8 @@ def resolve_molecule_input(user_input):
     
     # 尝试化学式匹配
     # 首先规范化化学式（移除空格，统一大小写）
-    import re as regex
     formula_input = user_input.replace(' ', '')
-    if regex.match(r'^[A-Z][a-z]?\d*([A-Z][a-z]?\d*)*$', formula_input):
+    if re.match(r'^[A-Z][a-z]?\d*([A-Z][a-z]?\d*)*$', formula_input):
         if formula_input in CHEMICAL_FORMULA_MAP:
             smiles_list = CHEMICAL_FORMULA_MAP[formula_input]
             if len(smiles_list) == 1:
@@ -763,7 +762,6 @@ def get_boiling_point_input(user_input):
     
     # 如果输入看起来像化学式（包含大写字母），尝试直接使用
     if any(c.isupper() for c in user_input) and len(user_input) <= 10:
-        import re
         if re.match(r'^[A-Z][a-z]?(\d+)?([A-Z][a-z]?\d?)*$', user_input):
             return {'input': user_input, 'formula': user_input, 'smiles': None}
     
