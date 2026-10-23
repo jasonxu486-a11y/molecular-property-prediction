@@ -7,19 +7,23 @@ import re
 import requests
 from collections import Counter
 from rdkit import Chem
-from rdkit.Chem import rdMolDescriptors
+from rdkit.Chem import Descriptors, rdMolDescriptors
 import torch
 import torch.nn as nn
 
 # ==================== 水溶解度预测模型 ====================
 class SolubilityPredictor:
-    def __init__(self, model_dir):
-        self.model_dir = model_dir
-        self.predictor = None
-        self.feature_names = None
+    """水溶解度预测器 - 使用本地模型文件"""
+    
+    def __init__(self, model_dir=None):
+        self.model_dir = model_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'solubility_models')
+        self.models = None
+        self.model_names = None
+        self.best_weights = None
         self.scaler = None
         self.variance_threshold = None
         self.select_k_best = None
+        self.feature_names = None
         self._load_model()
     
     def _load_model(self):
@@ -31,40 +35,139 @@ class SolubilityPredictor:
                 with open(feature_path, 'r', encoding='utf-8') as f:
                     self.feature_names = [line.strip() for line in f if line.strip()]
             
-            # 加载预处理工具（如果存在）
-            scaler_path = os.path.join(self.model_dir, 'scaler.pkl')
-            if os.path.exists(scaler_path):
-                self.scaler = pickle.load(open(scaler_path, 'rb'))
-            
-            var_path = os.path.join(self.model_dir, 'variance_threshold.pkl')
-            if os.path.exists(var_path):
-                self.variance_threshold = pickle.load(open(var_path, 'rb'))
-            
-            select_path = os.path.join(self.model_dir, 'select_k_best.pkl')
-            if os.path.exists(select_path):
-                self.select_k_best = pickle.load(open(select_path, 'rb'))
-            
             # 加载集成模型
             model_path = os.path.join(self.model_dir, 'logs_best_model_v8_optimized.pkl')
             if os.path.exists(model_path):
-                self.predictor = pickle.load(open(model_path, 'rb'))
+                model_data = pickle.load(open(model_path, 'rb'))
+                self.models = model_data['models']
+                self.model_names = model_data['model_names']
+                self.best_weights = model_data['best_weights']
+                # 从模型数据中加载预处理工具
+                self.scaler = model_data.get('scaler')
+                self.variance_threshold = model_data.get('var_thresh')
+                self.select_k_best = model_data.get('selector')
             
             print("✓ 水溶解度预测模型已加载")
         except Exception as e:
             print(f"⚠ 水溶解度预测模型加载失败: {e}")
-            # 如果加载失败，使用 predict_logs.py 中的函数
-            self.predictor = None
+            import traceback
+            traceback.print_exc()
     
     def predict(self, smiles):
         """预测水溶解度"""
         try:
-            import sys
-            sys.path.insert(0, r'D:\00全部文件\人工智能赋能化学实验创新赛\徐杰生\水溶解度预测')
-            from predict_logs import predict_single
-            result = predict_single(smiles)
-            return result
+            from rdkit.Chem import AllChem
+            from rdkit.Chem import MACCSkeys
+            
+            # 生成分子描述符
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                print("SMILES 解析失败")
+                return None
+            
+            # 138 descriptors (使用与 predict_logs.py 相同的描述符列表)
+            desc_vals = []
+            for d in [
+                Descriptors.MolWt, Descriptors.MolLogP, Descriptors.MolMR, Descriptors.TPSA,
+                Descriptors.HeavyAtomCount, Descriptors.HeavyAtomMolWt,
+                Descriptors.RingCount, Descriptors.NumAromaticRings, Descriptors.NumAliphaticRings,
+                Descriptors.NumHAcceptors, Descriptors.NumHDonors, Descriptors.NumRotatableBonds,
+                Descriptors.NumHeteroatoms, Descriptors.NumHeterocycles,
+                Descriptors.NumAromaticCarbocycles, Descriptors.NumAromaticHeterocycles,
+                Descriptors.NumAliphaticCarbocycles, Descriptors.NumAliphaticHeterocycles,
+                Descriptors.NumSaturatedRings, Descriptors.NumSaturatedHeterocycles,
+                Descriptors.NumAmideBonds, Descriptors.NumAtomStereoCenters,
+                Descriptors.NumBridgeheadAtoms, Descriptors.ExactMolWt,
+                Descriptors.EState_VSA1, Descriptors.EState_VSA2, Descriptors.EState_VSA3,
+                Descriptors.EState_VSA4, Descriptors.EState_VSA5, Descriptors.EState_VSA6,
+                Descriptors.EState_VSA7, Descriptors.EState_VSA8,
+                Descriptors.EState_VSA9, Descriptors.EState_VSA10,
+                Descriptors.VSA_EState1, Descriptors.VSA_EState2, Descriptors.VSA_EState3,
+                Descriptors.VSA_EState4, Descriptors.VSA_EState5,
+                Descriptors.VSA_EState6, Descriptors.VSA_EState7, Descriptors.VSA_EState8,
+                Descriptors.PEOE_VSA1, Descriptors.PEOE_VSA2, Descriptors.PEOE_VSA3,
+                Descriptors.PEOE_VSA4, Descriptors.PEOE_VSA5,
+                Descriptors.PEOE_VSA6, Descriptors.PEOE_VSA7, Descriptors.PEOE_VSA8,
+                Descriptors.SlogP_VSA1, Descriptors.SlogP_VSA2, Descriptors.SlogP_VSA3,
+                Descriptors.SlogP_VSA4, Descriptors.SlogP_VSA5,
+                Descriptors.SlogP_VSA6,
+                Descriptors.Chi0n, Descriptors.Chi1n, Descriptors.Chi2n, Descriptors.Chi3n,
+                Descriptors.Chi0v, Descriptors.Chi1v, Descriptors.Chi2v, Descriptors.Chi3v,
+                Descriptors.Chi0, Descriptors.Chi1,
+                Descriptors.BCUT2D_CHGHI, Descriptors.BCUT2D_CHGLO,
+                Descriptors.BCUT2D_LOGPHI, Descriptors.BCUT2D_LOGPLOW,
+                Descriptors.BCUT2D_MWHI, Descriptors.BCUT2D_MWLOW,
+                Descriptors.BCUT2D_MRHI, Descriptors.BCUT2D_MRLOW,
+                Descriptors.AUTOCORR2D_1, Descriptors.AUTOCORR2D_2, Descriptors.AUTOCORR2D_3,
+                Descriptors.AUTOCORR2D_4, Descriptors.AUTOCORR2D_5, Descriptors.AUTOCORR2D_6,
+                Descriptors.AUTOCORR2D_7, Descriptors.AUTOCORR2D_8, Descriptors.AUTOCORR2D_9,
+                Descriptors.AUTOCORR2D_10, Descriptors.AUTOCORR2D_11, Descriptors.AUTOCORR2D_12,
+                Descriptors.AUTOCORR2D_13, Descriptors.AUTOCORR2D_14, Descriptors.AUTOCORR2D_15,
+                Descriptors.AUTOCORR2D_16, Descriptors.AUTOCORR2D_17, Descriptors.AUTOCORR2D_18,
+                Descriptors.AUTOCORR2D_19, Descriptors.AUTOCORR2D_20,
+                Descriptors.AUTOCORR2D_21, Descriptors.AUTOCORR2D_22, Descriptors.AUTOCORR2D_23,
+                Descriptors.AUTOCORR2D_24, Descriptors.AUTOCORR2D_25, Descriptors.AUTOCORR2D_26,
+                Descriptors.AUTOCORR2D_27, Descriptors.AUTOCORR2D_28, Descriptors.AUTOCORR2D_29,
+                Descriptors.AUTOCORR2D_30,
+                Descriptors.MaxPartialCharge, Descriptors.MinPartialCharge,
+                Descriptors.MaxAbsPartialCharge, Descriptors.MinAbsPartialCharge,
+                Descriptors.MaxEStateIndex, Descriptors.MinEStateIndex,
+                Descriptors.MaxAbsEStateIndex, Descriptors.MinAbsEStateIndex,
+                Descriptors.BertzCT, Descriptors.HallKierAlpha,
+                Descriptors.FractionCSP3, Descriptors.LabuteASA,
+                Descriptors.Ipc, Descriptors.BalabanJ,
+                Descriptors.fr_Al_OH, Descriptors.fr_Ar_OH,
+                Descriptors.fr_COO, Descriptors.fr_COO2,
+                Descriptors.fr_Ar_N, Descriptors.fr_NH0, Descriptors.fr_NH1, Descriptors.fr_NH2,
+                Descriptors.fr_ester, Descriptors.fr_ether,
+                Descriptors.fr_amide, Descriptors.fr_ketone,
+                Descriptors.fr_halogen, Descriptors.fr_nitro,
+                Descriptors.fr_aldehyde, Descriptors.fr_thiophene,
+                Descriptors.fr_furan, Descriptors.fr_pyridine,
+                Descriptors.fr_benzene, Descriptors.fr_phenol,
+            ]:
+                try:
+                    desc_vals.append(float(d(mol)))
+                except:
+                    desc_vals.append(0.0)
+            
+            # Fingerprints
+            ecfp4 = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=4096)
+            ecfp4_arr = np.array([int(x) for x in ecfp4], dtype=np.float64)
+            maccs = MACCSkeys.GenMACCSKeys(mol)
+            maccs_arr = np.array([int(x) for x in maccs], dtype=np.float64)
+            atompair = rdMolDescriptors.GetHashedAtomPairFingerprintAsBitVect(mol, nBits=881)
+            atompair_arr = np.array([int(x) for x in atompair], dtype=np.float64)
+            
+            # 合并所有特征
+            X = np.nan_to_num(np.concatenate([desc_vals, ecfp4_arr, maccs_arr, atompair_arr]), nan=0.0, posinf=0.0, neginf=0.0)
+            
+            # 移除常数特征 (与 predict_logs.py 保持一致)
+            const_indices = [4234, 4235, 4236, 4238, 5281]
+            keep = np.array([j for j in range(len(X)) if j not in const_indices])
+            X = X[keep]
+            
+            # 预处理
+            X_scaled = self.scaler.transform(X.reshape(1, -1))
+            X_var = self.variance_threshold.transform(X_scaled)
+            X_final = self.select_k_best.transform(X_var)
+            
+            # 预测
+            predictions = []
+            for name, model in self.models.items():
+                pred = model.predict(X_final)[0]
+                predictions.append(pred)
+            
+            # 加权平均
+            weight_dict = dict(zip(self.model_names, self.best_weights))
+            final_pred = sum(predictions[i] * weight_dict[name] for i, name in enumerate(self.models.keys()))
+            
+            return final_pred
+            
         except Exception as e:
             print(f"预测出错: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
 
