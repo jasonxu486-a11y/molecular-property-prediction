@@ -11,6 +11,47 @@ from rdkit.Chem import Descriptors, rdMolDescriptors
 import torch
 import torch.nn as nn
 
+# ==================== 模型文件下载 ====================
+def download_model_file(filename, url):
+    """下载模型文件"""
+    # 检查文件是否已存在
+    if os.path.exists(filename):
+        return True
+    
+    try:
+        print(f"正在下载 {filename}...")
+        response = requests.get(url, timeout=30, stream=True)
+        response.raise_for_status()
+        
+        # 创建目录
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        
+        # 下载文件
+        with open(filename, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        print(f"✓ {filename} 下载完成")
+        return True
+    except Exception as e:
+        print(f"✗ {filename} 下载失败: {e}")
+        return False
+
+
+def ensure_model_files():
+    """确保模型文件存在，如果不存在则下载"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # 水溶解度模型文件
+    solubility_model_dir = os.path.join(script_dir, 'solubility_models')
+    solubility_model_file = os.path.join(solubility_model_dir, 'logs_best_model_v8_optimized.pkl')
+    
+    if not os.path.exists(solubility_model_file):
+        # GitHub Release 下载链接
+        model_url = 'https://github.com/jasonxu486-a11y/molecular-property-prediction/releases/download/附件/logs_best_model_v8_optimized.pkl'
+        download_model_file(solubility_model_file, model_url)
+
+
 # ==================== 水溶解度预测模型 ====================
 class SolubilityPredictor:
     """水溶解度预测器 - 使用本地模型文件"""
@@ -1126,6 +1167,9 @@ def get_solubility_description(logs, molecule_name=None):
 
 # ==================== 主页面 ====================
 def main():
+    # 确保模型文件存在
+    ensure_model_files()
+    
     st.set_page_config(page_title="分子性质预测工具", page_icon="🧪", layout="wide")
     
     # 自定义CSS
