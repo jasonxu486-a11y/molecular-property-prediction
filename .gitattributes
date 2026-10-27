@@ -1,0 +1,7 @@
+# Git LFS tracking for model files
+boiling_models/*.pth filter=lfs diff=lfs merge=lfs -text
+boiling_models/*.pkl filter=lfs diff=lfs merge=lfs -text
+solubility_models/*.pth filter=lfs diff=lfs merge=lfs -text
+solubility_models/*.pkl filter=lfs diff=lfs merge=lfs -text
+*.h5 filter=lfs diff=lfs merge=lfs -text
+*.hdf5 filter=lfs diff=lfs merge=lfs -text
