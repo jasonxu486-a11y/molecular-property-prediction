@@ -745,6 +745,107 @@ CHEMICAL_FORMULA_MAP = {
 }
 
 
+# ==================== 化学式到中文名映射 ====================
+# 用于化学式输入时显示中文名
+FORMULA_TO_CHINESE = {
+    "H2O": "水",
+    "CH4": "甲烷",
+    "C2H6O": "乙醇",
+    "CH4O": "甲醇",
+    "C2H6": "乙烷",
+    "C3H8": "丙烷",
+    "C4H10": "丁烷",
+    "C6H6": "苯",
+    "C7H8": "甲苯",
+    "CH2O": "甲醛",
+    "C2H4O": "乙醛",
+    "C3H6O": "丙酮",
+    "C4H8O2": "乙酸乙酯",
+    "C2H4O2": "乙酸",
+    "CH2O2": "甲酸",
+    "C6H12O6": "葡萄糖",
+    "C8H10": "二甲苯",
+    "C4H10O": "丁醇",
+    "C3H8O": "丙醇",
+    "C5H12": "戊烷",
+    "C5H10": "戊烯",
+    "C6H14": "己烷",
+    "C7H16": "庚烷",
+    "C8H18": "辛烷",
+    "C2H2": "乙炔",
+    "C2H3N": "丙炔腈",
+    "CH3N": "甲胺",
+    "CH5N": "甲胺",
+    "CH4N2O": "尿素",
+    "CH2O3": "甲酸",
+    "C2H2O": "乙烯酮",
+    "C2H4": "乙烯",
+    "C3H6": "丙烯",
+    "C4H8": "丁烷",
+    "C6H10": "环己烷",
+    "C6H12": "环己烷",
+    "C7H14": "庚烷",
+    "C8H16": "辛烷",
+    "C9H20": "壬烷",
+    "C10H22": "癸烷",
+    "C2H5Cl": "氯乙烷",
+    "CH3Cl": "氯甲烷",
+    "CH2Cl2": "二氯甲烷",
+    "CHCl3": "氯仿",
+    "CCl4": "四氯化碳",
+    "CH2F2": "二氟甲烷",
+    "CH3F": "氟甲烷",
+    "CHF3": "氟仿",
+    "CF4": "四氟甲烷",
+    "C2H4F2": "二氟乙烷",
+    "C2H3F3": "三氟乙烷",
+    "C2H2F4": "四氟乙烷",
+    "C2HF5": "五氟乙烷",
+    "CH3NO2": "硝基甲烷",
+    "C2H5NO2": "硝基乙烷",
+    "CH3NO": "亚硝基甲烷",
+    "C2H6N2": "乙二胺",
+    "CH6N2": "二甲胺",
+    "C2H7N": "乙胺",
+    "CH5N": "甲胺",
+    "CH4N2S": "硫脲",
+    "CH2NS": "硫代甲酰胺",
+    "C2H4N2": "乙二酰二胺",
+    "CH2N2": "重氮甲烷",
+    "C2H2N2": "重氮乙烷",
+    "C3H4N2": "丙二酰二胺",
+    "C4H4N2": "丁二酰二胺",
+    "C5H6N2": "戊二酰二胺",
+    "C6H8N2": "己二酰二胺",
+    "C2H5NO": "乙酰胺",
+    "CH3NO": "甲酰胺",
+    "CH2NO2": "硝酸甲酯",
+    "C2H5NO2": "硝酸乙酯",
+    "CH3NO3": "硝酸甲酯",
+    "C2H6N2O": "乙二胺氧化物",
+    "C2H4N2O": "乙二酰二胺氧化物",
+    "C3H6N2O": "丙二酰二胺氧化物",
+    "C4H8N2O": "丁二酰二胺氧化物",
+    "C5H10N2O": "戊二酰二胺氧化物",
+    "C6H12N2O": "己二酰二胺氧化物",
+    "C2H6O2": "乙二醇",
+    "CH4O2": "甲醇",
+    "C3H8O2": "异丙醇",
+    "C4H10O2": "丁醇",
+    "C5H12O2": "戊醇",
+    "C6H14O2": "己醇",
+    "C2H6S": "乙硫醇",
+    "CH4S": "甲硫醇",
+    "C2H6SO": "乙亚砜",
+    "C2H6O2S": "乙砜",
+    "CH4O2S": "甲磺酸",
+    "C2H6O3S": "乙磺酸",
+    "C3H8O3S": "丙磺酸",
+    "C4H10O3S": "丁磺酸",
+    "C5H12O3S": "戊磺酸",
+    "C6H14O3S": "己磺酸",
+}
+
 # ==================== 中文名到英文名映射 ====================
 CHINESE_TO_ENGLISH = {
     "乙醇": "ethanol",
@@ -952,10 +1053,13 @@ def resolve_molecule_input(user_input):
                 mol = Chem.MolFromSmiles(smiles_list[0])
                 if mol:
                     formula = generate_chemical_formula(mol)
+                    # 从 FORMULA_TO_CHINESE 中查找中文名
+                    chinese_name = FORMULA_TO_CHINESE.get(formula_input, '')
+                    
                     pubchem = lookup_pubchem(smiles_list[0])
                     if pubchem:
-                        return {'smiles': smiles_list[0], 'chinese_name': '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
-                    return {'smiles': smiles_list[0], 'chinese_name': '', 'english_name': '', 'cas': '', 'formula': formula}
+                        return {'smiles': smiles_list[0], 'chinese_name': chinese_name, 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
+                    return {'smiles': smiles_list[0], 'chinese_name': chinese_name, 'english_name': '', 'cas': '', 'formula': formula}
             else:
                 return {'smiles': None, 'chinese_name': '', 'english_name': f'CHEMICAL_FORMULA:{formula_input}', 'cas': smiles_list, 'formula': formula_input, 'is_formula_choice': True}
     
