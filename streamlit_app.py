@@ -1031,6 +1031,10 @@ def show_solubility_page():
         st.markdown("### 输入分子")
         st.markdown("支持输入: **中文名**、**英文名**、**化学式**、**SMILES**、**CAS No**")
         
+        # 初始化 session state（如果不存在）
+        if 'solubility_input_text' not in st.session_state:
+            st.session_state['solubility_input_text'] = 'CCO'
+        
         # 创建标签页式输入
         input_mode = st.radio(
             "选择输入方式",
@@ -1041,16 +1045,17 @@ def show_solubility_page():
         
         user_input = None
         
+        # 根据输入模式显示对应的文本框
         if input_mode == "SMILES":
-            user_input = st.text_input("输入 SMILES", "CCO", help="例如: CCO, c1ccccc1, O")
+            user_input = st.text_input("输入 SMILES", st.session_state.get('solubility_input_text', 'CCO'), help="例如: CCO, c1ccccc1, O", key="solubility_input")
         elif input_mode == "化学式":
-            user_input = st.text_input("输入 化学式", "C2H6O", help="例如: C2H6O, C6H6, H2O")
+            user_input = st.text_input("输入 化学式", st.session_state.get('solubility_input_text', 'C2H6O'), help="例如: C2H6O, C6H6, H2O", key="solubility_input")
         elif input_mode == "中文名":
-            user_input = st.text_input("输入 中文名", "乙醇", help="例如: 水, 乙醇, 苯, 甲苯")
+            user_input = st.text_input("输入 中文名", st.session_state.get('solubility_input_text', '乙醇'), help="例如: 水, 乙醇, 苯, 甲苯", key="solubility_input")
         elif input_mode == "英文名":
-            user_input = st.text_input("输入 英文名", "ethanol", help="例如: water, ethanol, benzene, toluene")
+            user_input = st.text_input("输入 英文名", st.session_state.get('solubility_input_text', 'ethanol'), help="例如: water, ethanol, benzene, toluene", key="solubility_input")
         elif input_mode == "CAS No":
-            user_input = st.text_input("输入 CAS No", "64-17-5", help="例如: 7732-18-5 (水), 64-17-5 (乙醇)")
+            user_input = st.text_input("输入 CAS No", st.session_state.get('solubility_input_text', '64-17-5'), help="例如: 7732-18-5 (水), 64-17-5 (乙醇)", key="solubility_input")
         
         # 移除调试输出：不再显示 "解析为 SMILES"
         
@@ -1139,11 +1144,11 @@ def show_solubility_page():
         col_btn1, col_btn2 = st.columns(2)
         for i, (name, smiles) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
-                if st.button(name, key=f"mol_{i}"):
-                    # 设置输入模式为SMILES
+                def set_input(s=smiles):
+                    st.session_state['solubility_input_text'] = s
                     st.session_state['solubility_input_mode'] = 'SMILES'
-                    st.session_state['solubility_input'] = smiles
-                    st.rerun()
+                if st.button(name, key=f"mol_{i}", on_click=set_input):
+                    pass
 
 
 def show_boiling_point_page():
