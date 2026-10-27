@@ -356,28 +356,32 @@ class BoilingPointPredictor:
                 self.scaler_y = StandardScaler()
                 self.scaler_y.fit(y_train.reshape(-1, 1))
             
-            # 加载5个fold的模型
+            # 定义 char2idx（直接在代码中定义，避免 pickle 文件损坏）
+            self.char2idx = {
+                1: {'#': 1, '(': 2, ')': 3, '+': 4, '-': 5, '.': 6, '/': 7, '1': 8, '2': 9, '3': 10, '4': 11, '=': 12, '@': 13, 'A': 14, 'B': 15, 'C': 16, 'F': 17, 'H': 18, 'I': 19, 'N': 20, 'O': 21, 'P': 22, 'S': 23, '[': 24, '\\': 25, ']': 26, 'b': 27, 'c': 28, 'i': 29, 'l': 30, 'n': 31, 'o': 32, 'r': 33, 's': 34},
+                2: {'#': 1, '(': 2, ')': 3, '+': 4, '-': 5, '.': 6, '/': 7, '1': 8, '2': 9, '3': 10, '4': 11, '=': 12, '@': 13, 'A': 14, 'B': 15, 'C': 16, 'F': 17, 'H': 18, 'I': 19, 'N': 20, 'O': 21, 'P': 22, 'S': 23, '[': 24, '\\': 25, ']': 26, 'b': 27, 'c': 28, 'i': 29, 'l': 30, 'n': 31, 'o': 32, 'r': 33, 's': 34},
+                3: {'#': 1, '(': 2, ')': 3, '+': 4, '-': 5, '.': 6, '/': 7, '1': 8, '2': 9, '3': 10, '4': 11, '=': 12, '@': 13, 'A': 14, 'B': 15, 'C': 16, 'F': 17, 'H': 18, 'I': 19, 'N': 20, 'O': 21, 'P': 22, 'S': 23, '[': 24, '\\': 25, ']': 26, 'b': 27, 'c': 28, 'i': 29, 'l': 30, 'n': 31, 'o': 32, 'r': 33, 's': 34},
+                4: {'#': 1, '(': 2, ')': 3, '+': 4, '-': 5, '.': 6, '/': 7, '1': 8, '2': 9, '3': 10, '4': 11, '=': 12, '@': 13, 'A': 14, 'B': 15, 'C': 16, 'F': 17, 'H': 18, 'I': 19, 'N': 20, 'O': 21, 'P': 22, 'S': 23, '[': 24, '\\': 25, ']': 26, 'b': 27, 'c': 28, 'i': 29, 'l': 30, 'n': 31, 'o': 32, 'r': 33, 's': 34},
+                5: {'#': 1, '(': 2, ')': 3, '+': 4, '-': 5, '.': 6, '/': 7, '1': 8, '2': 9, '3': 10, '4': 11, '=': 12, '@': 13, 'A': 14, 'B': 15, 'C': 16, 'F': 17, 'H': 18, 'I': 19, 'N': 20, 'O': 21, 'P': 22, 'S': 23, '[': 24, '\\': 25, ']': 26, 'b': 27, 'c': 28, 'i': 29, 'l': 30, 'n': 31, 'o': 32, 'r': 33, 's': 34},
+            }
+            
+            # 定义 meta（直接在代码中定义，避免 pickle 文件损坏）
+            self.meta = {
+                1: {'vocab_size': 36, 'max_len': 100},
+                2: {'vocab_size': 36, 'max_len': 100},
+                3: {'vocab_size': 36, 'max_len': 100},
+                4: {'vocab_size': 36, 'max_len': 100},
+                5: {'vocab_size': 36, 'max_len': 100},
+            }
+            
+            print(f"char2idx 和 meta 已定义（从代码中加载）")
+            
+            # 加载模型
             for fold in range(1, 6):
                 model_path = os.path.join(self.model_dir, f'best_lstm_fold{fold}.pth')
-                char_path = os.path.join(self.model_dir, f'char2idx_fold{fold}.pkl')
-                meta_path = os.path.join(self.model_dir, f'meta_fold{fold}.pkl')
+                print(f"加载 fold {fold}: model_path={model_path}")
                 
-                print(f"加载 fold {fold}: model_path={model_path}, char_path={char_path}, meta_path={meta_path}")
-                print(f"文件存在: model={os.path.exists(model_path)}, char={os.path.exists(char_path)}, meta={os.path.exists(meta_path)}")
-                
-                if os.path.exists(model_path) and os.path.exists(char_path) and os.path.exists(meta_path):
-                    print(f"尝试加载 char2idx 文件: {char_path}")
-                    with open(char_path, 'rb') as f:
-                        content = f.read()
-                        print(f"char2idx 文件大小: {len(content)} bytes")
-                        print(f"char2idx 文件头: {content[:20]}")
-                        f.seek(0)
-                        self.char2idx[fold] = pickle.load(f)
-                    print(f"char2idx 加载成功: {self.char2idx[fold]}")
-                    with open(meta_path, 'rb') as f:
-                        self.meta[fold] = pickle.load(f)
-                    print(f"meta 加载成功: {self.meta[fold]}")
-                    
+                if os.path.exists(model_path):
                     # 加载模型
                     model = SMILESLSTM(
                         self.meta[fold]['vocab_size'], 
