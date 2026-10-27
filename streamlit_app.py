@@ -383,19 +383,25 @@ class BoilingPointPredictor:
                     model.eval()
                     self.models[fold] = model
                     print(f"✓ fold {fold} 加载成功")
+                    st.info(f"✅ fold {fold} 加载成功")
             
             print(f"✓ 沸点预测 LSTM 模型已加载 ({len(self.models)} 个 fold)")
+            st.success(f"✅ 沸点预测 LSTM 模型已加载 ({len(self.models)} 个 fold)")
         except Exception as e:
             print(f"⚠ 沸点预测模型加载失败: {e}")
             import traceback
             traceback.print_exc()
+            st.error(f"❌ 沸点预测模型加载失败: {e}")
+            st.code(traceback.format_exc())
     
     def predict(self, formula, fold=None):
         """预测沸点"""
         try:
             print(f"predict() 被调用，formula: {formula}")
+            st.info(f"🔍 predict() 被调用，formula: {formula}")
             if len(self.models) == 0:
                 print(f"模型未加载，model_dir: {self.model_dir}")
+                st.error(f"❌ 模型未加载，model_dir: {self.model_dir}")
                 return None
             
             # 如果没有指定 fold，使用第一个可用的 fold
@@ -405,8 +411,10 @@ class BoilingPointPredictor:
             # 获取 SMILES
             smiles = self._formula_to_smiles(formula)
             print(f"_formula_to_smiles({formula}) = {smiles}")
+            st.info(f"🔍 _formula_to_smiles({formula}) = {smiles}")
             if smiles is None:
                 print(f"化学式 {formula} 无法转换为 SMILES")
+                st.error(f"❌ 化学式 {formula} 无法转换为 SMILES")
                 return None
             
             # 获取特征
@@ -431,6 +439,10 @@ class BoilingPointPredictor:
             }
         except Exception as e:
             print(f"预测出错: {e}")
+            st.error(f"❌ 预测出错: {e}")
+            import traceback
+            traceback.print_exc()
+            st.code(traceback.format_exc())
             return None
     
     def _formula_to_smiles(self, formula):
@@ -1198,6 +1210,7 @@ def predict_boiling_point(user_input):
     """预测沸点"""
     try:
         print(f"输入: {user_input}")
+        st.info(f"🔍 输入: {user_input}")
         
         # 首先检查输入是否是SMILES
         mol = Chem.MolFromSmiles(user_input)
@@ -1206,10 +1219,12 @@ def predict_boiling_point(user_input):
             smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
             formula = generate_chemical_formula(mol)
             print(f"SMILES 输入: {smiles}, 化学式: {formula}")
+            st.info(f"🔍 SMILES 输入: {smiles}, 化学式: {formula}")
         else:
             # 解析用户输入（中文名、英文名、化学式、CAS No）
             result = resolve_molecule_input(user_input)
             print(f"resolve_molecule_input 结果: {result}")
+            st.info(f"🔍 resolve_molecule_input 结果: {result}")
             if result is None:
                 return None
             smiles, en, cas = result
@@ -1230,9 +1245,11 @@ def predict_boiling_point(user_input):
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
                 print(f"SMILES 解析失败: {smiles}")
+                st.error(f"❌ SMILES 解析失败: {smiles}")
                 return None
             formula = generate_chemical_formula(mol)
             print(f"解析结果: SMILES={smiles}, 化学式={formula}")
+            st.info(f"🔍 解析结果: SMILES={smiles}, 化学式={formula}")
         
         # 沸点模型路径（使用相对路径，兼容Streamlit Cloud）
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1241,29 +1258,37 @@ def predict_boiling_point(user_input):
         # 确保模型目录存在
         if not os.path.exists(model_dir):
             print(f"模型目录不存在: {model_dir}")
+            st.error(f"❌ 模型目录不存在: {model_dir}")
             return None
         
+        st.info(f"🔍 模型目录: {model_dir}")
         predictor = BoilingPointPredictor(model_dir)
         
         print(f"模型目录: {model_dir}")
         print(f"模型数量: {len(predictor.models)}")
         print(f"可用 fold: {list(predictor.models.keys())}")
+        st.info(f"🔍 模型数量: {len(predictor.models)}")
+        st.info(f"🔍 可用 fold: {list(predictor.models.keys())}")
         
         if len(predictor.models) == 0:
             print("模型未加载")
+            st.error("❌ 模型未加载，请检查模型文件是否正确")
             return None
         
+        st.info(f"✅ 模型已加载 ({len(predictor.models)} 个 fold)")
         result = predictor.predict(formula)
         print(f"预测结果: {result}")
+        st.info(f"🔍 预测结果: {result}")
         if result:
             result['smiles'] = smiles
             result['formula'] = formula
         return result
-        
     except Exception as e:
         print(f"预测出错: {e}")
         import traceback
         traceback.print_exc()
+        st.error(f"❌ 预测出错: {e}")
+        st.code(traceback.format_exc())
         return None
 
 
