@@ -375,6 +375,7 @@ class BoilingPointPredictor:
     def predict(self, formula, fold=None):
         """预测沸点"""
         try:
+            print(f"predict() 被调用，formula: {formula}")
             if len(self.models) == 0:
                 print(f"模型未加载，model_dir: {self.model_dir}")
                 return None
@@ -385,6 +386,7 @@ class BoilingPointPredictor:
             
             # 获取 SMILES
             smiles = self._formula_to_smiles(formula)
+            print(f"_formula_to_smiles({formula}) = {smiles}")
             if smiles is None:
                 print(f"化学式 {formula} 无法转换为 SMILES")
                 return None
