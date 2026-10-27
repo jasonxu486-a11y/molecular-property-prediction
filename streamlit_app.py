@@ -1013,6 +1013,11 @@ def resolve_molecule_input(user_input):
                 if en_name.lower() == en.lower():
                     chinese_name = cn
                     break
+            # 特殊处理：如果英文名是 oxidane，检查是否是水
+            if not chinese_name and en.lower() == 'oxidane':
+                # 检查 SMILES 是否是水
+                if canonical == 'O':
+                    chinese_name = '水'
         
         if pubchem:
             return {'smiles': canonical, 'chinese_name': chinese_name, 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
