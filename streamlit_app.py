@@ -753,19 +753,21 @@ def get_boiling_point_input(user_input):
                 formula = generate_chemical_formula(mol)
                 return {'input': user_input, 'formula': formula, 'smiles': smiles}
     
-    # 尝试CAS No匹配
-    if re.match(r'^\d{1,7}-\d{2}-\d$', user_input):
-        if user_input in MOLECULE_MAP:
-            smiles = MOLECULE_MAP[user_input]
-            mol = Chem.MolFromSmiles(smiles)
-            if mol:
-                formula = generate_chemical_formula(mol)
-                return {'input': user_input, 'formula': formula, 'smiles': smiles}
-    
-    # 如果输入看起来像化学式（包含大写字母），尝试直接使用
-    if any(c.isupper() for c in user_input) and len(user_input) <= 10:
-        if re.match(r'^[A-Z][a-z]?(\d+)?([A-Z][a-z]?\d?)*$', user_input):
-            return {'input': user_input, 'formula': user_input, 'smiles': None}
+    # 尝试化学式匹配
+    # 首先规范化化学式（移除空格，统一大小写）
+    formula_input = user_input.replace(' ', '')
+    if re.match(r'^[A-Z][a-z]?\d*([A-Z][a-z]?\d*)*$', formula_input):
+        if formula_input in CHEMICAL_FORMULA_MAP:
+            smiles_list = CHEMICAL_FORMULA_MAP[formula_input]
+            if len(smiles_list) == 1:
+                # 只有一个异构体，直接返回
+                mol = Chem.MolFromSmiles(smiles_list[0])
+                if mol:
+                    formula = generate_chemical_formula(mol)
+                    return {'input': user_input, 'formula': formula, 'smiles': smiles_list[0]}
+            else:
+                # 有多个异构体，返回化学式和所有可能的SMILES
+                return {'input': user_input, 'formula': formula_input, 'smiles': None, 'smiles_list': smiles_list}
     
     # 本地字典没找到，尝试通过 PubChem API 联网查询
     pubchem_result = lookup_pubchem(user_input)
