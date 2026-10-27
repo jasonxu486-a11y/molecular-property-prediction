@@ -823,18 +823,13 @@ def resolve_molecule_input(user_input):
     # 尝试化学式匹配
     # 首先规范化化学式（移除空格，统一大小写）
     formula_input = user_input.replace(' ', '')
-    print(f"DEBUG resolve_molecule_input: user_input={user_input}, formula_input={formula_input}")
-    print(f"DEBUG: formula_input matches regex: {bool(re.match(r'^[A-Z][a-z]?\d*([A-Z][a-z]?\d*)*$', formula_input))}")
     if re.match(r'^[A-Z][a-z]?\d*([A-Z][a-z]?\d*)*$', formula_input):
-        print(f"DEBUG: checking CHEMICAL_FORMULA_MAP for {formula_input}")
         if formula_input in CHEMICAL_FORMULA_MAP:
             smiles_list = CHEMICAL_FORMULA_MAP[formula_input]
-            print(f"DEBUG: found {formula_input} in CHEMICAL_FORMULA_MAP: {smiles_list}")
             if len(smiles_list) == 1:
                 # 只有一个异构体，直接返回
                 mol = Chem.MolFromSmiles(smiles_list[0])
                 if mol:
-                    print(f"DEBUG: returning SMILES {smiles_list[0]} for formula {formula_input}")
                     return (smiles_list[0], '', '')
             else:
                 # 有多个异构体，需要让用户选择
@@ -842,9 +837,7 @@ def resolve_molecule_input(user_input):
                 return (None, f'CHEMICAL_FORMULA:{formula_input}', smiles_list)
     
     # 本地字典没找到，尝试通过 PubChem API 联网查询
-    print(f"DEBUG: calling lookup_pubchem for {user_input}")
     pubchem_result = lookup_pubchem(user_input)
-    print(f"DEBUG: lookup_pubchem result: {pubchem_result}")
     if pubchem_result:
         return pubchem_result
     
