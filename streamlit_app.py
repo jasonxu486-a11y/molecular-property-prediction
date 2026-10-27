@@ -856,7 +856,8 @@ def resolve_molecule_input(user_input):
         pubchem = lookup_pubchem(canonical)
         if pubchem:
             return {'smiles': canonical, 'chinese_name': '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
-        return {'smiles': canonical, 'chinese_name': '', 'english_name': '', 'cas': '', 'formula': formula}
+        # 如果 PubChem 查询失败，返回基本的分子信息
+        return {'smiles': canonical, 'chinese_name': '', 'english_name': 'N/A', 'cas': 'N/A', 'formula': formula}
     
     # 尝试从映射表中查找
     if user_input in MOLECULE_MAP:
@@ -1064,15 +1065,15 @@ def show_solubility_page():
         
         # 根据输入模式显示对应的文本框
         if input_mode == "SMILES":
-            user_input = st.text_input("输入 SMILES", st.session_state.get('solubility_input_text', 'CCO'), help="例如: CCO, c1ccccc1, O", key="solubility_input")
+            user_input = st.text_input("输入 SMILES", "CCO", help="例如: CCO, c1ccccc1, O")
         elif input_mode == "化学式":
-            user_input = st.text_input("输入 化学式", st.session_state.get('solubility_input_text', 'C2H6O'), help="例如: C2H6O, C6H6, H2O", key="solubility_input")
+            user_input = st.text_input("输入 化学式", "C2H6O", help="例如: C2H6O, C6H6, H2O")
         elif input_mode == "中文名":
-            user_input = st.text_input("输入 中文名", st.session_state.get('solubility_input_text', '乙醇'), help="例如: 水, 乙醇, 苯, 甲苯", key="solubility_input")
+            user_input = st.text_input("输入 中文名", "水", help="例如: 水, 乙醇, 苯, 甲苯")
         elif input_mode == "英文名":
-            user_input = st.text_input("输入 英文名", st.session_state.get('solubility_input_text', 'ethanol'), help="例如: water, ethanol, benzene, toluene", key="solubility_input")
+            user_input = st.text_input("输入 英文名", "water", help="例如: water, ethanol, benzene, toluene")
         elif input_mode == "CAS No":
-            user_input = st.text_input("输入 CAS No", st.session_state.get('solubility_input_text', '64-17-5'), help="例如: 7732-18-5 (水), 64-17-5 (乙醇)", key="solubility_input")
+            user_input = st.text_input("输入 CAS No", "7732-18-5", help="例如: 7732-18-5 (水), 64-17-5 (乙醇)")
         
         # 移除调试输出：不再显示 "解析为 SMILES"
         
