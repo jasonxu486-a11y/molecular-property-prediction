@@ -1070,9 +1070,17 @@ def resolve_molecule_input(user_input):
             if mol:
                 formula = generate_chemical_formula(mol)
                 pubchem = lookup_pubchem(smiles)
+                
+                # 从 MOLECULE_MAP 中查找中文名
+                chinese_name = ''
+                for name, mol_smiles in MOLECULE_MAP.items():
+                    if isinstance(name, str) and name in CHINESE_TO_ENGLISH and mol_smiles == smiles:
+                        chinese_name = name
+                        break
+                
                 if pubchem:
-                    return {'smiles': smiles, 'chinese_name': '', 'english_name': pubchem[1], 'cas': user_input, 'formula': formula}
-                return {'smiles': smiles, 'chinese_name': '', 'english_name': '', 'cas': user_input, 'formula': formula}
+                    return {'smiles': smiles, 'chinese_name': chinese_name, 'english_name': pubchem[1], 'cas': user_input, 'formula': formula}
+                return {'smiles': smiles, 'chinese_name': chinese_name, 'english_name': '', 'cas': user_input, 'formula': formula}
     
     # 尝试化学式匹配
     formula_input = user_input.replace(' ', '')
@@ -1350,8 +1358,8 @@ def show_solubility_page():
         for i, (name, smiles) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"mol_{i}"):
+                    # 只设置输入文本，不设置模式，让 radio 保持当前选择
                     st.session_state['solubility_input_text'] = smiles
-                    st.session_state['solubility_input_mode'] = 'SMILES'
                     st.session_state['solubility_button_clicked'] = True
                     st.rerun()
 
@@ -1538,8 +1546,7 @@ def show_boiling_point_page():
         for i, (name, formula) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"bp_mol_{i}"):
-                    # 设置输入模式为化学式
-                    st.session_state['boiling_input_mode'] = '化学式'
+                    # 只设置输入文本，不设置模式，让 radio 保持当前选择
                     st.session_state['boiling_input'] = formula
                     st.rerun()
 
