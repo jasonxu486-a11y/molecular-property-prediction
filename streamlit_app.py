@@ -396,6 +396,7 @@ class BoilingPointPredictor:
             # 获取 SMILES
             smiles = self._formula_to_smiles(formula)
             if smiles is None:
+                print(f"ERROR: formula {formula} not found in formula_map")
                 return None
             
             # 获取特征
@@ -419,6 +420,9 @@ class BoilingPointPredictor:
                 'formula': formula
             }
         except Exception as e:
+            print(f"BoilingPointPredictor.predict error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _formula_to_smiles(self, formula):
@@ -1295,6 +1299,9 @@ def predict_boiling_point(user_input):
             result['formula'] = formula
         return result
     except Exception as e:
+        print(f"predict_boiling_point error: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
