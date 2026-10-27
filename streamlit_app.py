@@ -703,6 +703,54 @@ CHEMICAL_FORMULA_MAP = {
 }
 
 
+# ==================== 中文名到英文名映射 ====================
+CHINESE_TO_ENGLISH = {
+    "乙醇": "ethanol",
+    "甲醇": "methanol",
+    "苯": "benzene",
+    "甲苯": "toluene",
+    "乙酸": "acetic acid",
+    "丙酮": "acetone",
+    "氨": "ammonia",
+    "甲醛": "formaldehyde",
+    "甲烷": "methane",
+    "氯甲烷": "chloromethane",
+    "二甲基亚砜": "DMSO",
+    "尿素": "urea",
+    "一氧化氮": "nitric oxide",
+    "二氧化硫": "sulfur dioxide",
+    "过氧化氢": "hydrogen peroxide",
+    "硝基苯": "nitrobenzene",
+    "邻二甲苯": "o-xylene",
+    "对二甲苯": "p-xylene",
+    "间二甲苯": "m-xylene",
+    "乙二醇": "ethylene glycol",
+    "甘油": "glycerol",
+    "葡萄糖": "glucose",
+    "咖啡因": "caffeine",
+    "阿司匹林": "aspirin",
+    "胆固醇": "cholesterol",
+    "乙酸乙酯": "ethyl acetate",
+    "乙醚": "diethyl ether",
+    "氯仿": "chloroform",
+    "四氯化碳": "carbon tetrachloride",
+    "苯酚": "phenol",
+    "苯胺": "aniline",
+    "苯甲酸": "benzoic acid",
+    "丙烯": "propene",
+    "丁烯": "butene",
+    "戊烷": "pentane",
+    "己烷": "hexane",
+    "庚烷": "heptane",
+    "辛烷": "octane",
+    "壬烷": "nonane",
+    "癸烷": "decane",
+    "乙炔": "acetylene",
+    "丙炔": "propyne",
+    "丁炔": "butyne",
+    "乙二胺": "ethylenediamine",
+}
+
 # ==================== PubChem API 查询 ====================
 def lookup_pubchem(name):
     """
@@ -712,6 +760,10 @@ def lookup_pubchem(name):
     name = name.strip()
     if not name:
         return None
+    
+    # 尝试将中文名转换为英文名
+    if name in CHINESE_TO_ENGLISH:
+        name = CHINESE_TO_ENGLISH[name]
     
     try:
         url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/property/IsomericSMILES/JSON'
