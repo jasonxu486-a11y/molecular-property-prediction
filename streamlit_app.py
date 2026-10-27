@@ -11,6 +11,75 @@ from rdkit.Chem import Descriptors, rdMolDescriptors
 import torch
 import torch.nn as nn
 
+
+# ==================== 模糊搜索功能 ====================
+def levenshtein_distance(s1, s2):
+    """计算两个字符串的编辑距离"""
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+    
+    if len(s2) == 0:
+        return len(s1)
+    
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            # insertions/deletions/substitutions
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(previous_row[j + 1] + 1, current_row[j] + 1, substitutions))
+        previous_row = current_row
+    
+    return previous_row[-1]
+
+
+def fuzzy_search_molecule(user_input, threshold=0.7):
+    """
+    模糊搜索分子，返回相似的分子列表
+    threshold: 相似度阈值 (0-1)，越高越严格
+    """
+    user_input = user_input.strip().lower()
+    if not user_input:
+        return []
+    
+    suggestions = []
+    
+    # 搜索 MOLECULE_MAP 中的中文名和英文名
+    for name, smiles in MOLECULE_MAP.items():
+        if isinstance(name, str):
+            # 计算相似度
+            distance = levenshtein_distance(user_input, name.lower())
+            max_distance = int(len(name) * (1 - threshold))
+            
+            if distance <= max_distance:
+                similarity = 1 - distance / max(len(name), len(user_input))
+                suggestions.append({
+                    'name': name,
+                    'smiles': smiles,
+                    'similarity': similarity,
+                    'type': 'molecule_map'
+                })
+    
+    # 搜索 CHEMICAL_FORMULA_MAP 中的化学式
+    for formula, smiles_list in CHEMICAL_FORMULA_MAP.items():
+        distance = levenshtein_distance(user_input, formula.lower())
+        max_distance = int(len(formula) * (1 - threshold))
+        
+        if distance <= max_distance:
+            similarity = 1 - distance / max(len(formula), len(user_input))
+            suggestions.append({
+                'name': formula,
+                'smiles': smiles_list[0],  # 只取第一个 SMILES
+                'similarity': similarity,
+                'type': 'chemical_formula'
+            })
+    
+    # 按相似度排序
+    suggestions.sort(key=lambda x: x['similarity'], reverse=True)
+    
+    # 返回相似度最高的前 5 个
+    return suggestions[:5]
+
 # ==================== 模型文件下载 ====================
 def download_model_file(filename, url):
     """下载模型文件"""
@@ -712,6 +781,12 @@ def resolve_molecule_input(user_input):
     if pubchem_result:
         return pubchem_result
     
+    # 如果所有方法都失败，尝试模糊搜索
+    suggestions = fuzzy_search_molecule(user_input)
+    if suggestions:
+        # 返回一个特殊格式，包含模糊搜索结果
+        return (None, f'FUZZY_SEARCH:{user_input}', suggestions)
+    
     return None
 
 
@@ -824,13 +899,36 @@ def show_solubility_page():
     
     with col1:
         st.markdown("### 输入分子")
-        st.markdown("支持输入: **中文名**、**英文名**、**SMILES**、**CAS No**")
-        user_input = st.text_input("输入分子标识", "CCO", help="例如: CCO, c1ccccc1, 水, 苯, ethanol, 7732-18-5")
+        st.markdown("支持输入: **中文名**、**英文名**、**化学式**、**SMILES**、**CAS No**")
         
-        # 显示解析的SMILES
-        parsed_smiles = get_smiles_from_input(user_input)
-        if parsed_smiles and parsed_smiles != user_input:
-            st.info(f"🔍 解析为 SMILES: `{parsed_smiles}`")
+        # 创建标签页式输入
+        input_mode = st.radio(
+            "选择输入方式",
+            ["SMILES", "化学式", "中文名", "英文名", "CAS No"],
+            horizontal=True,
+            key="solubility_input_mode"
+        )
+        
+        user_input = None
+        
+        if input_mode == "SMILES":
+            user_input = st.text_input("输入 SMILES", "CCO", help="例如: CCO, c1ccccc1, O")
+        elif input_mode == "化学式":
+            user_input = st.text_input("输入 化学式", "C2H6O", help="例如: C2H6O, C6H6, H2O")
+        elif input_mode == "中文名":
+            user_input = st.text_input("输入 中文名", "乙醇", help="例如: 水, 乙醇, 苯, 甲苯")
+        elif input_mode == "英文名":
+            user_input = st.text_input("输入 英文名", "ethanol", help="例如: water, ethanol, benzene, toluene")
+        elif input_mode == "CAS No":
+            user_input = st.text_input("输入 CAS No", "64-17-5", help="例如: 7732-18-5 (水), 64-17-5 (乙醇)")
+        
+        # 显示解析的SMILES或化学式
+        if user_input:
+            parsed_info = get_smiles_from_input(user_input)
+            if parsed_info and parsed_info != user_input:
+                st.info(f"🔍 解析为 SMILES: `{parsed_info}`")
+            elif parsed_info == user_input:
+                st.info(f"🔍 检测到 SMILES: `{parsed_info}`")
         
         if st.button("预测水溶解度", type="primary", use_container_width=True):
             if user_input:
@@ -913,15 +1011,36 @@ def show_boiling_point_page():
     with col1:
         st.markdown("### 输入分子")
         st.markdown("支持输入: **中文名**、**英文名**、**化学式**、**SMILES**、**CAS No**")
-        user_input = st.text_input("输入分子标识", "C2H6O", help="例如: C2H6O, C6H6, H2O, 水, ethanol, 7732-18-5")
+        
+        # 创建标签页式输入
+        input_mode = st.radio(
+            "选择输入方式",
+            ["SMILES", "化学式", "中文名", "英文名", "CAS No"],
+            horizontal=True,
+            key="boiling_input_mode"
+        )
+        
+        user_input = None
+        
+        if input_mode == "SMILES":
+            user_input = st.text_input("输入 SMILES", "CCO", help="例如: CCO, c1ccccc1, O")
+        elif input_mode == "化学式":
+            user_input = st.text_input("输入 化学式", "C2H6O", help="例如: C2H6O, C6H6, H2O")
+        elif input_mode == "中文名":
+            user_input = st.text_input("输入 中文名", "乙醇", help="例如: 水, 乙醇, 苯, 甲苯")
+        elif input_mode == "英文名":
+            user_input = st.text_input("输入 英文名", "ethanol", help="例如: water, ethanol, benzene, toluene")
+        elif input_mode == "CAS No":
+            user_input = st.text_input("输入 CAS No", "64-17-5", help="例如: 7732-18-5 (水), 64-17-5 (乙醇)")
         
         # 显示解析的化学式或SMILES
-        parsed_info = get_boiling_point_input(user_input)
-        if parsed_info and parsed_info['input'] != user_input:
-            if parsed_info['smiles']:
-                st.info(f"🔍 解析为 SMILES: `{parsed_info['smiles']}`")
-            elif parsed_info['formula']:
-                st.info(f"🔍 解析为 化学式: `{parsed_info['formula']}`")
+        if user_input:
+            parsed_info = get_boiling_point_input(user_input)
+            if parsed_info and parsed_info['input'] != user_input:
+                if parsed_info['smiles']:
+                    st.info(f"🔍 解析为 SMILES: `{parsed_info['smiles']}`")
+                elif parsed_info['formula']:
+                    st.info(f"🔍 解析为 化学式: `{parsed_info['formula']}`")
         
         if st.button("预测沸点", type="primary", use_container_width=True):
             if user_input:
@@ -1081,6 +1200,12 @@ def predict_boiling_point(user_input):
                 smiles_list = CHEMICAL_FORMULA_MAP.get(formula, [])
                 return {'is_formula_choice': True, 'formula': formula, 'smiles_list': smiles_list}
             
+            # 如果是模糊搜索模式
+            if smiles is None and en and en.startswith('FUZZY_SEARCH:'):
+                user_query = en.replace('FUZZY_SEARCH:', '')
+                suggestions = cas  # cas 实际上是 suggestions 列表
+                return {'is_fuzzy_search': True, 'user_query': user_query, 'suggestions': suggestions}
+            
             # 生成化学式
             mol = Chem.MolFromSmiles(smiles)
             if mol is None:
@@ -1130,6 +1255,12 @@ def predict_solubility(user_input):
         if result is None:
             return None
         smiles, en, cas = result
+        
+        # 如果是模糊搜索模式
+        if smiles is None and en and en.startswith('FUZZY_SEARCH:'):
+            user_query = en.replace('FUZZY_SEARCH:', '')
+            suggestions = cas  # cas 实际上是 suggestions 列表
+            return {'is_fuzzy_search': True, 'user_query': user_query, 'suggestions': suggestions}
         
         # 水溶解度模型路径（使用相对路径，兼容Streamlit Cloud）
         script_dir = os.path.dirname(os.path.abspath(__file__))
