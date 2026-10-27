@@ -399,6 +399,11 @@ class BoilingPointPredictor:
             if fold is None:
                 fold = next(iter(self.models.keys()))
             
+            # 检查 scaler_y 是否存在
+            if not hasattr(self, 'scaler_y'):
+                print(f"ERROR: scaler_y not found")
+                return None
+            
             # 获取 SMILES
             smiles = self._formula_to_smiles(formula)
             if smiles is None:
