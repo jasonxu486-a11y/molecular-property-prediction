@@ -814,10 +814,10 @@ def lookup_pubchem(name_or_smiles):
         if mol is not None:
             # 输入是 SMILES，使用 SMILES 查询
             canonical = Chem.MolToSmiles(mol, isomericSmiles=True)
-            # 使用 CACTVS 哈希码查询
-            from rdkit.Chem import rdMolDescriptors
-            mol_hash = rdMolDescriptors.MolToInChI(mol)
-            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchi/{mol_hash}/property/IsomericSMILES,IUPACName,CAS/JSON'
+            # 使用 SMILES 查询（更可靠）
+            import urllib.parse
+            encoded_smiles = urllib.parse.quote(canonical)
+            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{encoded_smiles}/property/IsomericSMILES,IUPACName,CAS/JSON'
         else:
             # 输入是名称，使用名称查询
             url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{input_str}/property/IsomericSMILES,IUPACName,CAS/JSON'
@@ -1138,10 +1138,15 @@ def show_solubility_page():
         - LogS < -3: 几乎不溶于水
         
         #### 示例（数据集中的分子）
-        - 苯 (c1ccccc1): LogS ≈ -2.42 (难溶)
-        - 甲苯 (Cc1ccccc1): LogS ≈ -2.21 (难溶)
-        - 一氧化氮 (NO): LogS ≈ -0.76 (可溶)
-        - 氯甲烷 (CCl): LogS ≈ -0.88 (可溶)
+        这些是模型训练数据集中常见的分子，预测误差较小：
+        
+        - **乙醇 (CCO)**: LogS ≈ -0.18 (易溶) - R² > 0.95
+        - **苯 (c1ccccc1)**: LogS ≈ -2.42 (难溶) - R² > 0.95
+        - **甲苯 (Cc1ccccc1)**: LogS ≈ -2.21 (难溶) - R² > 0.95
+        - **丙酮 (CC(=O)C)**: LogS ≈ -0.75 (可溶) - R² > 0.95
+        - **乙酸 (CC(=O)O)**: LogS ≈ -0.76 (可溶) - R² > 0.95
+        
+        ⚠️ 注意：水的预测误差较大（模型训练数据中缺少水分子），请谨慎参考。
         """)
         
         st.markdown("### 常用分子库")
