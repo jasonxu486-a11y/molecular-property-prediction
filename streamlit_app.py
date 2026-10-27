@@ -814,24 +814,72 @@ def lookup_pubchem(name_or_smiles):
         if mol is not None:
             # 输入是 SMILES，使用 SMILES 查询
             canonical = Chem.MolToSmiles(mol, isomericSmiles=True)
-            # 使用 SMILES 查询（更可靠）
             import urllib.parse
             encoded_smiles = urllib.parse.quote(canonical)
-            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{encoded_smiles}/property/IsomericSMILES,IUPACName,CAS/JSON'
+            
+            # Step 1: 获取 CID
+            url_cid = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{encoded_smiles}/cids/JSON'
+            r_cid = requests.get(url_cid, timeout=10)
+            if r_cid.status_code != 200:
+                return None
+            cid = r_cid.json().get('IdentifierList', {}).get('CID', [None])[0]
+            if not cid:
+                return None
+            
+            # Step 2: 使用 CID 获取 SMILES
+            url_smiles = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/property/SMILES/JSON'
+            r_smiles = requests.get(url_smiles, timeout=10)
+            if r_smiles.status_code != 200:
+                return None
+            smiles = r_smiles.json().get('PropertyTable', {}).get('Properties', [{}])[0].get('SMILES', '')
+            if not smiles:
+                return None
+            
+            # Step 3: 使用 CID 获取 IUPACName
+            url_iupac = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/property/IUPACName/JSON'
+            r_iupac = requests.get(url_iupac, timeout=10)
+            iupac = ''
+            if r_iupac.status_code == 200:
+                iupac = r_iupac.json().get('PropertyTable', {}).get('Properties', [{}])[0].get('IUPACName', '')
+            
+            # Step 4: 使用 CID 获取 synonyms (包含 CAS)
+            url_synonyms = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/synonyms/JSON'
+            r_synonyms = requests.get(url_synonyms, timeout=10)
+            cas = ''
+            if r_synonyms.status_code == 200:
+                synonyms = r_synonyms.json().get('InformationList', {}).get('Information', [{}])[0].get('Synonym', [])
+                for syn in synonyms:
+                    # CAS号格式: 数字-数字-数字
+                    if re.match(r'^\d{1,7}-\d{2}-\d$', syn):
+                        cas = syn
+                        break
+            
+            if smiles:
+                return (smiles, iupac or input_str, cas or '')
         else:
             # 输入是名称，使用名称查询
-            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{input_str}/property/IsomericSMILES,IUPACName,CAS/JSON'
-        
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            if 'PropertyTable' in data:
-                props = data['PropertyTable']['Properties'][0]
-                smiles = props.get('SMILES', '')
-                if smiles:
-                    cas = props.get('CAS', '')
-                    iupac = props.get('IUPACName', '')
-                    return (smiles, iupac or input_str, cas or '')
+            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{input_str}/property/SMILES,IUPACName/JSON'
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                if 'PropertyTable' in data:
+                    props = data['PropertyTable']['Properties'][0]
+                    smiles = props.get('SMILES', '')
+                    if smiles:
+                        iupac = props.get('IUPACName', '')
+                        # 获取 synonyms (包含 CAS)
+                        cid = props.get('CID', '')
+                        cas = ''
+                        if cid:
+                            url_synonyms = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/synonyms/JSON'
+                            r_synonyms = requests.get(url_synonyms, timeout=10)
+                            if r_synonyms.status_code == 200:
+                                synonyms = r_synonyms.json().get('InformationList', {}).get('Information', [{}])[0].get('Synonym', [])
+                                for syn in synonyms:
+                                    if re.match(r'^\d{1,7}-\d{2}-\d$', syn):
+                                        cas = syn
+                                        break
+                        return (smiles, iupac or input_str, cas or '')
     except Exception:
         pass
     
