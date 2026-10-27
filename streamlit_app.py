@@ -1083,7 +1083,7 @@ def show_solubility_page():
                         
                         # 解释 LogS
                         st.markdown("### 结果解释")
-                        solubility_desc = get_solubility_description(result, user_input)
+                        solubility_desc = get_solubility_description(result['logS'], user_input)
                         st.info(solubility_desc)
                         
                         # 详细信息
