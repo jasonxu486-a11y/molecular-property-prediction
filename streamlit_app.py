@@ -848,6 +848,7 @@ FORMULA_TO_CHINESE = {
 
 # ==================== 中文名到英文名映射 ====================
 CHINESE_TO_ENGLISH = {
+    "水": "water",
     "乙醇": "ethanol",
     "甲醇": "methanol",
     "苯": "benzene",
@@ -1019,17 +1020,17 @@ def resolve_molecule_input(user_input):
             
             # 判断输入类型并设置 chinese_name
             chinese_name = ''
+            # 检查是否是中文名（在 CHINESE_TO_ENGLISH 中的键）
             if user_input in CHINESE_TO_ENGLISH:
-                # 输入是中文名
                 chinese_name = user_input
+            # 检查是否是中文名的大小写变体
             elif user_input.lower() in [k.lower() for k in CHINESE_TO_ENGLISH.keys()]:
-                # 输入是中文名的大小写变体
                 for cn in CHINESE_TO_ENGLISH.keys():
                     if cn.lower() == user_input.lower():
                         chinese_name = cn
                         break
+            # 检查是否是英文名，如果是则反向查找中文名
             else:
-                # 尝试从 CHINESE_TO_ENGLISH 反向查找英文名对应的中文名
                 for cn, en in CHINESE_TO_ENGLISH.items():
                     if en.lower() == user_input.lower():
                         chinese_name = cn
