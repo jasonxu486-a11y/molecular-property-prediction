@@ -345,6 +345,9 @@ class BoilingPointPredictor:
                 y_train = df['boiling point'].values
                 self.scaler_y = StandardScaler()
                 self.scaler_y.fit(y_train.reshape(-1, 1))
+                print(f"Scaler fitted with {len(y_train)} samples")
+            else:
+                print(f"clean_data.csv not found at {data_path}")
             
             # 定义 char2idx（直接在代码中定义，避免 pickle 文件损坏）
             self.char2idx = {
@@ -381,6 +384,9 @@ class BoilingPointPredictor:
                     self.models[fold] = model
             
         except Exception as e:
+            print(f"_load_model error: {e}")
+            import traceback
+            traceback.print_exc()
             pass
     
     def predict(self, formula, fold=None):
