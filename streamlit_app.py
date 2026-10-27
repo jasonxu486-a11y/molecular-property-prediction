@@ -1035,6 +1035,10 @@ def show_solubility_page():
         if 'solubility_input_text' not in st.session_state:
             st.session_state['solubility_input_text'] = 'CCO'
         
+        # 如果按钮被点击，重置状态
+        if st.session_state.get('solubility_button_clicked', False):
+            st.session_state['solubility_button_clicked'] = False
+        
         # 创建标签页式输入
         input_mode = st.radio(
             "选择输入方式",
@@ -1144,11 +1148,11 @@ def show_solubility_page():
         col_btn1, col_btn2 = st.columns(2)
         for i, (name, smiles) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
-                def set_input(s=smiles):
-                    st.session_state['solubility_input_text'] = s
+                if st.button(name, key=f"mol_{i}"):
+                    st.session_state['solubility_input_text'] = smiles
                     st.session_state['solubility_input_mode'] = 'SMILES'
-                if st.button(name, key=f"mol_{i}", on_click=set_input):
-                    pass
+                    st.session_state['solubility_button_clicked'] = True
+                    st.rerun()
 
 
 def show_boiling_point_page():
