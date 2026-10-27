@@ -1078,6 +1078,7 @@ def predict_boiling_point(user_input):
             # 如果是化学式选择模式（有多个异构体）
             if smiles is None and en and en.startswith('CHEMICAL_FORMULA:'):
                 formula = en.replace('CHEMICAL_FORMULA:', '')
+                smiles_list = CHEMICAL_FORMULA_MAP.get(formula, [])
                 return {'is_formula_choice': True, 'formula': formula, 'smiles_list': smiles_list}
             
             # 生成化学式
