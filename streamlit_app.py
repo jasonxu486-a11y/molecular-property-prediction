@@ -794,21 +794,34 @@ CHINESE_TO_ENGLISH = {
 }
 
 # ==================== PubChem API 查询 ====================
-def lookup_pubchem(name):
+def lookup_pubchem(name_or_smiles):
     """
-    通过 PubChem API 联网查找 SMILES
+    通过 PubChem API 联网查找分子信息
+    参数可以是名称或 SMILES
     返回 (SMILES, 英文名, CAS号) 或 None
     """
-    name = name.strip()
-    if not name:
+    input_str = name_or_smiles.strip()
+    if not input_str:
         return None
     
     # 尝试将中文名转换为英文名
-    if name in CHINESE_TO_ENGLISH:
-        name = CHINESE_TO_ENGLISH[name]
+    if input_str in CHINESE_TO_ENGLISH:
+        input_str = CHINESE_TO_ENGLISH[input_str]
     
     try:
-        url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/property/IsomericSMILES/JSON'
+        # 检查是否是 SMILES
+        mol = Chem.MolFromSmiles(input_str)
+        if mol is not None:
+            # 输入是 SMILES，使用 SMILES 查询
+            canonical = Chem.MolToSmiles(mol, isomericSmiles=True)
+            # 使用 CACTVS 哈希码查询
+            from rdkit.Chem import rdMolDescriptors
+            mol_hash = rdMolDescriptors.MolToInChI(mol)
+            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchi/{mol_hash}/property/IsomericSMILES,IUPACName,CAS/JSON'
+        else:
+            # 输入是名称，使用名称查询
+            url = f'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{input_str}/property/IsomericSMILES,IUPACName,CAS/JSON'
+        
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
             data = r.json()
@@ -818,7 +831,7 @@ def lookup_pubchem(name):
                 if smiles:
                     cas = props.get('CAS', '')
                     iupac = props.get('IUPACName', '')
-                    return (smiles, iupac or name, cas or '')
+                    return (smiles, iupac or input_str, cas or '')
     except Exception:
         pass
     
