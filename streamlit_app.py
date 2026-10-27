@@ -1071,12 +1071,20 @@ def resolve_molecule_input(user_input):
                 formula = generate_chemical_formula(mol)
                 pubchem = lookup_pubchem(smiles)
                 
-                # 从 MOLECULE_MAP 中查找中文名
+                # 从 MOLECULE_MAP 中查找中文名（中文名键在 CHINESE_TO_ENGLISH 中）
                 chinese_name = ''
                 for name, mol_smiles in MOLECULE_MAP.items():
                     if isinstance(name, str) and name in CHINESE_TO_ENGLISH and mol_smiles == smiles:
                         chinese_name = name
                         break
+                
+                # 如果没找到，尝试从 SMILES 反向查找
+                if not chinese_name:
+                    for cn, en in CHINESE_TO_ENGLISH.items():
+                        pubchem_result = lookup_pubchem(en)
+                        if pubchem_result and pubchem_result[0] == smiles:
+                            chinese_name = cn
+                            break
                 
                 if pubchem:
                     return {'smiles': smiles, 'chinese_name': chinese_name, 'english_name': pubchem[1], 'cas': user_input, 'formula': formula}
@@ -1358,10 +1366,38 @@ def show_solubility_page():
         for i, (name, smiles) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"mol_{i}"):
-                    # 只设置输入文本，不设置模式，让 radio 保持当前选择
-                    st.session_state['solubility_input_text'] = smiles
-                    st.session_state['solubility_button_clicked'] = True
-                    st.rerun()
+                    # 直接使用 SMILES 进行预测
+                    with st.spinner("正在预测..."):
+                        result = predict_solubility(smiles)
+                        if result is not None:
+                            st.success("预测成功！")
+                            
+                            # 分子基本信息
+                            st.markdown("### 分子基本信息")
+                            mol_info_cols = st.columns(2)
+                            with mol_info_cols[0]:
+                                st.info(f"""
+                                **中文名**: {result.get('chinese_name', 'N/A')}  
+                                **英文名**: {result.get('english_name', 'N/A')}  
+                                **SMILES**: {result.get('smiles', 'N/A')}  
+                                **CAS No**: {result.get('cas', 'N/A')}
+                                """)
+                            with mol_info_cols[1]:
+                                st.info(f"""
+                                **化学式**: {result.get('formula', 'N/A')}  
+                                **LogS 预测值**: {result['logS']:.4f}
+                                """)
+                            
+                            # 预测结果
+                            st.markdown("### 预测结果")
+                            st.metric("LogS (水溶解度)", f"{result['logS']:.4f}")
+                            
+                            # 解释 LogS
+                            st.markdown("### 结果解释")
+                            solubility_desc = get_solubility_description(result['logS'], result.get('chinese_name', ''))
+                            st.info(solubility_desc)
+                        else:
+                            st.error("预测失败，请检查输入格式是否正确")
 
 
 def show_boiling_point_page():
@@ -1546,9 +1582,119 @@ def show_boiling_point_page():
         for i, (name, formula) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"bp_mol_{i}"):
-                    # 只设置输入文本，不设置模式，让 radio 保持当前选择
-                    st.session_state['boiling_input'] = formula
-                    st.rerun()
+                    # 直接使用化学式进行预测
+                    with st.spinner("正在预测..."):
+                        result = predict_boiling_point(formula)
+                        if result:
+                            # 如果是化学式选择模式
+                            if result.get('is_formula_choice'):
+                                st.success("找到多个匹配的异构体！")
+                                st.markdown("### 请选择具体的异构体")
+                                
+                                formula_val = result['formula']
+                                smiles_list = result['smiles_list']
+                                
+                                # 创建选项字典
+                                options = {}
+                                for smiles in smiles_list:
+                                    mol = Chem.MolFromSmiles(smiles)
+                                    if mol:
+                                        name = Chem.MolToSmiles(mol, isomericSmiles=True)
+                                        options[name] = smiles
+                                
+                                # 显示选择按钮
+                                selected_smiles = st.radio(
+                                    "选择异构体",
+                                    list(options.keys()),
+                                    key=f"formula_choice_{formula_val}"
+                                )
+                                
+                                if selected_smiles:
+                                    selected_smiles = options[selected_smiles]
+                                    st.info(f"已选择: {selected_smiles}")
+                                    
+                                    # 使用选中的 SMILES 进行预测
+                                    mol = Chem.MolFromSmiles(selected_smiles)
+                                    if mol:
+                                        formula_val = generate_chemical_formula(mol)
+                                        
+                                        # 沸点模型路径（使用相对路径）
+                                        script_dir = os.path.dirname(os.path.abspath(__file__))
+                                        model_dir = os.path.join(script_dir, 'boiling_models')
+                                        
+                                        predictor = BoilingPointPredictor(model_dir)
+                                        
+                                        result = predictor.predict(formula_val)
+                                        if result:
+                                            st.success("预测成功！")
+                                            st.markdown("### 预测结果")
+                                            
+                                            col_a, col_b, col_c = st.columns(3)
+                                            with col_a:
+                                                st.metric("开尔文 (K)", f"{result['K']:.1f}")
+                                            with col_b:
+                                                st.metric("摄氏度 (°C)", f"{result['C']:.1f}")
+                                            with col_c:
+                                                st.metric("华氏度 (°F)", f"{result['F']:.1f}")
+                                            
+                                            # 分子基本信息
+                                            st.markdown("### 分子基本信息")
+                                            mol_info_cols = st.columns(2)
+                                            with mol_info_cols[0]:
+                                                st.info(f"""
+                                                **中文名**: {result.get('chinese_name', 'N/A')}  
+                                                **英文名**: {result.get('english_name', 'N/A')}  
+                                                **SMILES**: {result.get('smiles', 'N/A')}  
+                                                **CAS No**: {result.get('cas', 'N/A')}
+                                                """)
+                                            with mol_info_cols[1]:
+                                                st.info(f"""
+                                                **化学式**: {result.get('formula', 'N/A')}  
+                                                **沸点预测值**: {result['C']:.1f} °C
+                                                """)
+                                            
+                                            # 详细信息
+                                            st.markdown("### 详细信息")
+                                            st.info(f"""
+                                            **输入**: {formula}  
+                                            **预测方法**: LSTM (5折集成)
+                                            """)
+                            else:
+                                st.success("预测成功！")
+                                st.markdown("### 预测结果")
+                                
+                                col_a, col_b, col_c = st.columns(3)
+                                with col_a:
+                                    st.metric("开尔文 (K)", f"{result['K']:.1f}")
+                                with col_b:
+                                    st.metric("摄氏度 (°C)", f"{result['C']:.1f}")
+                                with col_c:
+                                    st.metric("华氏度 (°F)", f"{result['F']:.1f}")
+                                
+                                # 分子基本信息
+                                st.markdown("### 分子基本信息")
+                                mol_info_cols = st.columns(2)
+                                with mol_info_cols[0]:
+                                    st.info(f"""
+                                    **中文名**: {result.get('chinese_name', 'N/A')}  
+                                    **英文名**: {result.get('english_name', 'N/A')}  
+                                    **SMILES**: {result.get('smiles', 'N/A')}  
+                                    **CAS No**: {result.get('cas', 'N/A')}
+                                    """)
+                                with mol_info_cols[1]:
+                                    st.info(f"""
+                                    **化学式**: {result.get('formula', 'N/A')}  
+                                    **沸点预测值**: {result['C']:.1f} °C
+                                    """)
+                                
+                                # 详细信息
+                                st.markdown("### 详细信息")
+                                st.info(f"""
+                                **输入**: {formula}  
+                                **预测方法**: LSTM (5折集成)
+                                """)
+                        else:
+                            st.error("预测失败，请检查输入格式是否正确")
 
 
 # ==================== 预测函数 ====================
