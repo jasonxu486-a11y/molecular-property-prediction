@@ -800,9 +800,10 @@ def lookup_pubchem(name):
 
 def resolve_molecule_input(user_input):
     """
-    解析用户输入，返回 (SMILES, 英文名, CAS号) 或 None
+    解析用户输入，返回包含分子信息的字典或 None
     支持: 中文名、英文名、化学式、SMILES、CAS No
     优先使用本地字典，失败则通过 PubChem API 联网查询
+    返回: {'smiles': SMILES, 'chinese_name': 中文名, 'english_name': 英文名, 'cas': CAS号} 或 None
     """
     user_input = user_input.strip()
     
@@ -810,14 +811,24 @@ def resolve_molecule_input(user_input):
     mol = Chem.MolFromSmiles(user_input)
     if mol is not None:
         canonical = Chem.MolToSmiles(mol, isomericSmiles=True)
-        return (canonical, '', '')
+        formula = generate_chemical_formula(mol)
+        # 尝试从 PubChem 获取更多信息
+        pubchem = lookup_pubchem(canonical)
+        if pubchem:
+            return {'smiles': canonical, 'chinese_name': '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
+        return {'smiles': canonical, 'chinese_name': '', 'english_name': '', 'cas': '', 'formula': formula}
     
     # 尝试从映射表中查找
     if user_input in MOLECULE_MAP:
         smiles = MOLECULE_MAP[user_input]
         mol = Chem.MolFromSmiles(smiles)
         if mol:
-            return (smiles, '', '')
+            formula = generate_chemical_formula(mol)
+            # 尝试从 PubChem 获取更多信息
+            pubchem = lookup_pubchem(smiles)
+            if pubchem:
+                return {'smiles': smiles, 'chinese_name': user_input if user_input in CHINESE_TO_ENGLISH else '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
+            return {'smiles': smiles, 'chinese_name': user_input if user_input in CHINESE_TO_ENGLISH else '', 'english_name': '', 'cas': '', 'formula': formula}
     
     # 尝试不区分大小写的英文名匹配
     lower_input = user_input.lower()
@@ -825,7 +836,11 @@ def resolve_molecule_input(user_input):
         if isinstance(name, str) and name.lower() == lower_input:
             mol = Chem.MolFromSmiles(smiles)
             if mol:
-                return (smiles, '', '')
+                formula = generate_chemical_formula(mol)
+                pubchem = lookup_pubchem(smiles)
+                if pubchem:
+                    return {'smiles': smiles, 'chinese_name': '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
+                return {'smiles': smiles, 'chinese_name': '', 'english_name': '', 'cas': '', 'formula': formula}
     
     # 尝试CAS No匹配
     if re.match(r'^\d{1,7}-\d{2}-\d$', user_input):
@@ -833,34 +848,47 @@ def resolve_molecule_input(user_input):
             smiles = MOLECULE_MAP[user_input]
             mol = Chem.MolFromSmiles(smiles)
             if mol:
-                return (smiles, '', '')
+                formula = generate_chemical_formula(mol)
+                pubchem = lookup_pubchem(smiles)
+                if pubchem:
+                    return {'smiles': smiles, 'chinese_name': '', 'english_name': pubchem[1], 'cas': user_input, 'formula': formula}
+                return {'smiles': smiles, 'chinese_name': '', 'english_name': '', 'cas': user_input, 'formula': formula}
     
     # 尝试化学式匹配
-    # 首先规范化化学式（移除空格，统一大小写）
     formula_input = user_input.replace(' ', '')
     if re.match(r'^[A-Z][a-z]?\d*([A-Z][a-z]?\d*)*$', formula_input):
         if formula_input in CHEMICAL_FORMULA_MAP:
             smiles_list = CHEMICAL_FORMULA_MAP[formula_input]
             if len(smiles_list) == 1:
-                # 只有一个异构体，直接返回
                 mol = Chem.MolFromSmiles(smiles_list[0])
                 if mol:
-                    return (smiles_list[0], '', '')
+                    formula = generate_chemical_formula(mol)
+                    pubchem = lookup_pubchem(smiles_list[0])
+                    if pubchem:
+                        return {'smiles': smiles_list[0], 'chinese_name': '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
+                    return {'smiles': smiles_list[0], 'chinese_name': '', 'english_name': '', 'cas': '', 'formula': formula}
             else:
-                # 有多个异构体，需要让用户选择
-                # 这里返回一个特殊格式，包含化学式和所有可能的SMILES
-                return (None, f'CHEMICAL_FORMULA:{formula_input}', smiles_list)
+                return {'smiles': None, 'chinese_name': '', 'english_name': f'CHEMICAL_FORMULA:{formula_input}', 'cas': smiles_list, 'formula': formula_input, 'is_formula_choice': True}
     
     # 本地字典没找到，尝试通过 PubChem API 联网查询
     pubchem_result = lookup_pubchem(user_input)
     if pubchem_result:
-        return pubchem_result
+        smiles, en, cas = pubchem_result
+        mol = Chem.MolFromSmiles(smiles)
+        if mol:
+            formula = generate_chemical_formula(mol)
+            # 尝试获取中文名
+            chinese_name = ''
+            for cn, en_name in CHINESE_TO_ENGLISH.items():
+                if en_name.lower() == en.lower():
+                    chinese_name = cn
+                    break
+            return {'smiles': smiles, 'chinese_name': chinese_name, 'english_name': en, 'cas': cas, 'formula': formula}
     
     # 如果所有方法都失败，尝试模糊搜索
     suggestions = fuzzy_search_molecule(user_input)
     if suggestions:
-        # 返回一个特殊格式，包含模糊搜索结果
-        return (None, f'FUZZY_SEARCH:{user_input}', suggestions)
+        return {'smiles': None, 'chinese_name': '', 'english_name': f'FUZZY_SEARCH:{user_input}', 'cas': suggestions, 'formula': '', 'is_fuzzy_search': True}
     
     return None
 
@@ -1005,8 +1033,25 @@ def show_solubility_page():
                     result = predict_solubility(user_input)
                     if result is not None:
                         st.success("预测成功！")
-                        st.markdown("### 预测结果")
                         
+                        # 分子基本信息
+                        st.markdown("### 分子基本信息")
+                        mol_info_cols = st.columns(2)
+                        with mol_info_cols[0]:
+                            st.info(f"""
+                            **中文名**: {result.get('chinese_name', 'N/A')}  
+                            **英文名**: {result.get('english_name', 'N/A')}  
+                            **SMILES**: {result.get('smiles', 'N/A')}  
+                            **CAS No**: {result.get('cas', 'N/A')}
+                            """)
+                        with mol_info_cols[1]:
+                            st.info(f"""
+                            **化学式**: {result.get('formula', 'N/A')}  
+                            **LogS 预测值**: {result:.4f}
+                            """)
+                        
+                        # 预测结果
+                        st.markdown("### 预测结果")
                         st.metric("LogS (水溶解度)", f"{result:.4f}")
                         
                         # 解释 LogS
@@ -1179,6 +1224,24 @@ def show_boiling_point_page():
                                         """)
                         else:
                             st.success("预测成功！")
+                            
+                            # 分子基本信息
+                            st.markdown("### 分子基本信息")
+                            mol_info_cols = st.columns(2)
+                            with mol_info_cols[0]:
+                                st.info(f"""
+                                **中文名**: {result.get('chinese_name', 'N/A')}  
+                                **英文名**: {result.get('english_name', 'N/A')}  
+                                **SMILES**: {result.get('smiles', 'N/A')}  
+                                **CAS No**: {result.get('cas', 'N/A')}
+                                """)
+                            with mol_info_cols[1]:
+                                st.info(f"""
+                                **化学式**: {result.get('formula', 'N/A')}  
+                                **沸点预测值**: {result['C']:.1f} °C
+                                """)
+                            
+                            # 预测结果
                             st.markdown("### 预测结果")
                             
                             col_a, col_b, col_c = st.columns(3)
@@ -1193,8 +1256,6 @@ def show_boiling_point_page():
                             st.markdown("### 详细信息")
                             st.info(f"""
                             **输入**: {user_input}  
-                            **SMILES**: {result.get('smiles', 'N/A')}  
-                            **化学式**: {result.get('formula', 'N/A')}  
                             **预测方法**: LSTM (5折集成)
                             """)
                     else:
@@ -1271,19 +1332,18 @@ def predict_boiling_point(user_input):
             result = resolve_molecule_input(user_input)
             if result is None:
                 return None
-            smiles, en, cas = result
             
-            # 如果是化学式选择模式（有多个异构体）
-            if smiles is None and en and en.startswith('CHEMICAL_FORMULA:'):
-                formula = en.replace('CHEMICAL_FORMULA:', '')
-                smiles_list = CHEMICAL_FORMULA_MAP.get(formula, [])
-                return {'is_formula_choice': True, 'formula': formula, 'smiles_list': smiles_list}
+            # 检查是否是化学式选择模式
+            if result.get('is_formula_choice'):
+                return {'is_formula_choice': True, 'formula': result['formula'], 'smiles_list': result['cas']}
             
-            # 如果是模糊搜索模式
-            if smiles is None and en and en.startswith('FUZZY_SEARCH:'):
-                user_query = en.replace('FUZZY_SEARCH:', '')
-                suggestions = cas  # cas 实际上是 suggestions 列表
-                return {'is_fuzzy_search': True, 'user_query': user_query, 'suggestions': suggestions}
+            # 检查是否是模糊搜索模式
+            if result.get('is_fuzzy_search'):
+                return {'is_fuzzy_search': True, 'user_query': result['english_name'].replace('FUZZY_SEARCH:', ''), 'suggestions': result['cas']}
+            
+            smiles = result['smiles']
+            en = result['english_name']
+            cas = result['cas']
             
             # 生成化学式
             mol = Chem.MolFromSmiles(smiles)
@@ -1308,6 +1368,9 @@ def predict_boiling_point(user_input):
         if result:
             result['smiles'] = smiles
             result['formula'] = formula
+            result['chinese_name'] = result.get('chinese_name', '')
+            result['english_name'] = result.get('english_name', en)
+            result['cas'] = result.get('cas', cas)
         return result
     except Exception as e:
         print(f"predict_boiling_point error: {e}")
@@ -1323,13 +1386,16 @@ def predict_solubility(user_input):
         result = resolve_molecule_input(user_input)
         if result is None:
             return None
-        smiles, en, cas = result
         
-        # 如果是模糊搜索模式
-        if smiles is None and en and en.startswith('FUZZY_SEARCH:'):
-            user_query = en.replace('FUZZY_SEARCH:', '')
-            suggestions = cas  # cas 实际上是 suggestions 列表
+        # 检查是否是模糊搜索模式
+        if result.get('is_fuzzy_search'):
+            user_query = result['english_name'].replace('FUZZY_SEARCH:', '')
+            suggestions = result['cas']
             return {'is_fuzzy_search': True, 'user_query': user_query, 'suggestions': suggestions}
+        
+        smiles = result['smiles']
+        en = result['english_name']
+        cas = result['cas']
         
         # 水溶解度模型路径（使用相对路径，兼容Streamlit Cloud）
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1346,8 +1412,14 @@ def predict_solubility(user_input):
             print("模型未加载")
             return None
         
-        result = predictor.predict(smiles)
-        return result
+        pred_result = predictor.predict(smiles)
+        if pred_result is not None:
+            pred_result['smiles'] = smiles
+            pred_result['chinese_name'] = result.get('chinese_name', '')
+            pred_result['english_name'] = en
+            pred_result['cas'] = cas
+            pred_result['formula'] = result.get('formula', '')
+        return pred_result
         
     except Exception as e:
         print(f"预测出错: {e}")
