@@ -1040,10 +1040,16 @@ def resolve_molecule_input(user_input):
                         chinese_name = cn
                         break
             # 检查是否是英文名，如果是则反向查找中文名
-            else:
+            elif user_input.lower() in [v.lower() for v in CHINESE_TO_ENGLISH.values()]:
                 for cn, en in CHINESE_TO_ENGLISH.items():
                     if en.lower() == user_input.lower():
                         chinese_name = cn
+                        break
+            # 检查是否是CAS No，如果是则从MOLECULE_MAP中查找中文名
+            elif re.match(r'^\d{1,7}-\d{2}-\d$', user_input):
+                for name, mol_smiles in MOLECULE_MAP.items():
+                    if isinstance(name, str) and name in CHINESE_TO_ENGLISH and mol_smiles == smiles:
+                        chinese_name = name
                         break
             
             if pubchem:
@@ -1077,14 +1083,6 @@ def resolve_molecule_input(user_input):
                     if isinstance(name, str) and name in CHINESE_TO_ENGLISH and mol_smiles == smiles:
                         chinese_name = name
                         break
-                
-                # 如果没找到，尝试从 SMILES 反向查找
-                if not chinese_name:
-                    for cn, en in CHINESE_TO_ENGLISH.items():
-                        pubchem_result = lookup_pubchem(en)
-                        if pubchem_result and pubchem_result[0] == smiles:
-                            chinese_name = cn
-                            break
                 
                 if pubchem:
                     return {'smiles': smiles, 'chinese_name': chinese_name, 'english_name': pubchem[1], 'cas': user_input, 'formula': formula}
@@ -1366,7 +1364,7 @@ def show_solubility_page():
         for i, (name, smiles) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"mol_{i}"):
-                    # 直接使用 SMILES 进行预测
+                    # 直接使用 SMILES 进行预测并显示结果
                     with st.spinner("正在预测..."):
                         result = predict_solubility(smiles)
                         if result is not None:
@@ -1396,6 +1394,16 @@ def show_solubility_page():
                             st.markdown("### 结果解释")
                             solubility_desc = get_solubility_description(result['logS'], result.get('chinese_name', ''))
                             st.info(solubility_desc)
+                            
+                            # 详细信息
+                            st.markdown("### 详细信息")
+                            st.info(f"""
+                            **输入**: {smiles}  
+                            **预测模型**: XGBoost + RF + MLP + Stacking (Ridge)  
+                            **测试集 R²**: 0.8137  
+                            **测试集 MAE**: 0.69  
+                            **测试集 RMSE**: 1.01
+                            """)
                         else:
                             st.error("预测失败，请检查输入格式是否正确")
 
@@ -1582,7 +1590,7 @@ def show_boiling_point_page():
         for i, (name, formula) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"bp_mol_{i}"):
-                    # 直接使用化学式进行预测
+                    # 直接使用化学式进行预测并显示结果
                     with st.spinner("正在预测..."):
                         result = predict_boiling_point(formula)
                         if result:
