@@ -360,11 +360,11 @@ class BoilingPointPredictor:
             
             # 定义 meta（直接在代码中定义，避免 pickle 文件损坏）
             self.meta = {
-                1: {'vocab_size': 36, 'max_len': 100},
-                2: {'vocab_size': 36, 'max_len': 100},
-                3: {'vocab_size': 36, 'max_len': 100},
-                4: {'vocab_size': 36, 'max_len': 100},
-                5: {'vocab_size': 36, 'max_len': 100},
+                1: {'vocab_size': 35, 'max_len': 100},
+                2: {'vocab_size': 35, 'max_len': 100},
+                3: {'vocab_size': 35, 'max_len': 100},
+                4: {'vocab_size': 35, 'max_len': 100},
+                5: {'vocab_size': 35, 'max_len': 100},
             }
             
             # 加载模型
@@ -1254,12 +1254,14 @@ def predict_boiling_point(user_input):
     try:
         user_input = user_input.strip()
         
-        # 首先检查输入是否可能是SMILES（SMILES通常包含特殊字符如=, #, @, [, ]等，或者以小写字母开头）
-        # 简单的启发式检查：如果输入只包含大写字母和数字，很可能是化学式而不是SMILES
-        is_likely_smiles = bool(re.match(r'^[A-Z][a-z]?(\d|([=#+@[\].\\/\\-]))', user_input))
+        # 首先检查输入是否可能是SMILES
+        # 如果输入只包含大写字母、小写字母和数字，很可能是化学式而不是SMILES
+        # SMILES 通常包含特殊字符如 =, #, @, [, ], (, ), - 等
+        is_likely_chemical_formula = bool(re.match(r'^[A-Z][a-z]?[\d]*$', user_input))
         
         mol = None
-        if is_likely_smiles:
+        if not is_likely_chemical_formula:
+            # 只有当输入不像是化学式时，才尝试解析为 SMILES
             mol = Chem.MolFromSmiles(user_input)
         
         if mol is not None:
