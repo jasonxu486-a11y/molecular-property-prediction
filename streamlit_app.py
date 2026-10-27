@@ -311,15 +311,18 @@ class BoilingPointPredictor:
             for path in possible_paths:
                 if os.path.exists(path):
                     model_dir = path
+                    print(f"找到模型目录: {model_dir}")
                     break
             # 如果还是没找到，使用第一个路径（即使不存在）
             if model_dir is None:
                 model_dir = possible_paths[0]
+                print(f"未找到模型目录，使用默认路径: {model_dir}")
         
         self.model_dir = model_dir
         self.models = {}  # 存储5个fold的模型
         self.char2idx = {}
         self.meta = {}
+        print(f"BoilingPointPredictor 初始化，model_dir: {self.model_dir}")
         self._load_model()
     
     def _load_model(self):
@@ -327,6 +330,15 @@ class BoilingPointPredictor:
         try:
             import torch
             import torch.nn as nn
+            
+            print(f"开始加载模型，model_dir: {self.model_dir}")
+            
+            # 检查模型文件是否存在
+            for fold in range(1, 6):
+                model_path = os.path.join(self.model_dir, f'best_lstm_fold{fold}.pth')
+                char_path = os.path.join(self.model_dir, f'char2idx_fold{fold}.pkl')
+                meta_path = os.path.join(self.model_dir, f'meta_fold{fold}.pkl')
+                print(f"检查文件: {model_path}, exists: {os.path.exists(model_path)}")
             
             # 加载 smiles_cache
             cache_path = os.path.join(self.model_dir, 'smiles_cache.pkl')
@@ -350,6 +362,9 @@ class BoilingPointPredictor:
                 char_path = os.path.join(self.model_dir, f'char2idx_fold{fold}.pkl')
                 meta_path = os.path.join(self.model_dir, f'meta_fold{fold}.pkl')
                 
+                print(f"加载 fold {fold}: model_path={model_path}, char_path={char_path}, meta_path={meta_path}")
+                print(f"文件存在: model={os.path.exists(model_path)}, char={os.path.exists(char_path)}, meta={os.path.exists(meta_path)}")
+                
                 if os.path.exists(model_path) and os.path.exists(char_path) and os.path.exists(meta_path):
                     with open(char_path, 'rb') as f:
                         self.char2idx[fold] = pickle.load(f)
@@ -367,10 +382,13 @@ class BoilingPointPredictor:
                     model.load_state_dict(torch.load(model_path, map_location='cpu', weights_only=True))
                     model.eval()
                     self.models[fold] = model
+                    print(f"✓ fold {fold} 加载成功")
             
             print(f"✓ 沸点预测 LSTM 模型已加载 ({len(self.models)} 个 fold)")
         except Exception as e:
             print(f"⚠ 沸点预测模型加载失败: {e}")
+            import traceback
+            traceback.print_exc()
     
     def predict(self, formula, fold=None):
         """预测沸点"""
