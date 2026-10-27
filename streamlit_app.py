@@ -80,6 +80,33 @@ def fuzzy_search_molecule(user_input, threshold=0.7):
     # 返回相似度最高的前 5 个
     return suggestions[:5]
 
+
+def get_solubility_description(result, user_input):
+    """
+    根据预测的 LogS 值解释水溶解度
+    result: 预测结果字典，包含 'logS' 键
+    user_input: 用户输入的分子名称
+    """
+    if isinstance(result, dict):
+        logS = result.get('logS', 0)
+    else:
+        # 如果 result 是浮点数（旧格式），直接使用
+        logS = result
+    
+    # 根据 LogS 值解释水溶解度
+    if logS > 0:
+        description = f"**{user_input}** 的 LogS = {logS:.4f}，**易溶于水**"
+    elif logS >= -1:
+        description = f"**{user_input}** 的 LogS = {logS:.4f}，**可溶于水**"
+    elif logS >= -2:
+        description = f"**{user_input}** 的 LogS = {logS:.4f}，**微溶于水**"
+    elif logS >= -3:
+        description = f"**{user_input}** 的 LogS = {logS:.4f}，**极微溶于水**"
+    else:
+        description = f"**{user_input}** 的 LogS = {logS:.4f}，**几乎不溶于水**"
+    
+    return description
+
 # ==================== 模型文件下载 ====================
 def download_model_file(filename, url):
     """下载模型文件"""
@@ -1047,12 +1074,12 @@ def show_solubility_page():
                         with mol_info_cols[1]:
                             st.info(f"""
                             **化学式**: {result.get('formula', 'N/A')}  
-                            **LogS 预测值**: {result:.4f}
+                            **LogS 预测值**: {result['logS']:.4f}
                             """)
                         
                         # 预测结果
                         st.markdown("### 预测结果")
-                        st.metric("LogS (水溶解度)", f"{result:.4f}")
+                        st.metric("LogS (水溶解度)", f"{result['logS']:.4f}")
                         
                         # 解释 LogS
                         st.markdown("### 结果解释")
@@ -1414,11 +1441,15 @@ def predict_solubility(user_input):
         
         pred_result = predictor.predict(smiles)
         if pred_result is not None:
-            pred_result['smiles'] = smiles
-            pred_result['chinese_name'] = result.get('chinese_name', '')
-            pred_result['english_name'] = en
-            pred_result['cas'] = cas
-            pred_result['formula'] = result.get('formula', '')
+            # SolubilityPredictor.predict 返回的是浮点数，需要包装成字典
+            return {
+                'smiles': smiles,
+                'chinese_name': result.get('chinese_name', ''),
+                'english_name': en,
+                'cas': cas,
+                'formula': result.get('formula', ''),
+                'logS': pred_result
+            }
         return pred_result
         
     except Exception as e:
