@@ -997,13 +997,7 @@ def show_solubility_page():
         elif input_mode == "CAS No":
             user_input = st.text_input("输入 CAS No", "64-17-5", help="例如: 7732-18-5 (水), 64-17-5 (乙醇)")
         
-        # 显示解析的SMILES或化学式
-        if user_input:
-            parsed_info = get_smiles_from_input(user_input)
-            if parsed_info and parsed_info != user_input:
-                st.info(f"🔍 解析为 SMILES: `{parsed_info}`")
-            elif parsed_info == user_input:
-                st.info(f"🔍 检测到 SMILES: `{parsed_info}`")
+        # 移除调试输出：不再显示 "解析为 SMILES"
         
         if st.button("预测水溶解度", type="primary", use_container_width=True):
             if user_input:
@@ -1074,6 +1068,8 @@ def show_solubility_page():
         for i, (name, smiles) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"mol_{i}"):
+                    # 设置输入模式为SMILES
+                    st.session_state['solubility_input_mode'] = 'SMILES'
                     st.session_state['solubility_input'] = smiles
                     st.rerun()
 
@@ -1244,6 +1240,8 @@ def show_boiling_point_page():
         for i, (name, formula) in enumerate(mol_list):
             with col_btn1 if i % 2 == 0 else col_btn2:
                 if st.button(name, key=f"bp_mol_{i}"):
+                    # 设置输入模式为化学式
+                    st.session_state['boiling_input_mode'] = '化学式'
                     st.session_state['boiling_input'] = formula
                     st.rerun()
 
