@@ -366,10 +366,17 @@ class BoilingPointPredictor:
                 print(f"文件存在: model={os.path.exists(model_path)}, char={os.path.exists(char_path)}, meta={os.path.exists(meta_path)}")
                 
                 if os.path.exists(model_path) and os.path.exists(char_path) and os.path.exists(meta_path):
+                    print(f"尝试加载 char2idx 文件: {char_path}")
                     with open(char_path, 'rb') as f:
+                        content = f.read()
+                        print(f"char2idx 文件大小: {len(content)} bytes")
+                        print(f"char2idx 文件头: {content[:20]}")
+                        f.seek(0)
                         self.char2idx[fold] = pickle.load(f)
+                    print(f"char2idx 加载成功: {self.char2idx[fold]}")
                     with open(meta_path, 'rb') as f:
                         self.meta[fold] = pickle.load(f)
+                    print(f"meta 加载成功: {self.meta[fold]}")
                     
                     # 加载模型
                     model = SMILESLSTM(
