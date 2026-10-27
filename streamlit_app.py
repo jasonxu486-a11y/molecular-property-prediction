@@ -1004,10 +1004,20 @@ def resolve_molecule_input(user_input):
         formula = generate_chemical_formula(mol)
         # 尝试从 PubChem 获取更多信息
         pubchem = lookup_pubchem(canonical)
+        
+        # 尝试从 CHINESE_TO_ENGLISH 反向查找中文名
+        chinese_name = ''
         if pubchem:
-            return {'smiles': canonical, 'chinese_name': '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
+            en = pubchem[1]
+            for cn, en_name in CHINESE_TO_ENGLISH.items():
+                if en_name.lower() == en.lower():
+                    chinese_name = cn
+                    break
+        
+        if pubchem:
+            return {'smiles': canonical, 'chinese_name': chinese_name, 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
         # 如果 PubChem 查询失败，返回基本的分子信息
-        return {'smiles': canonical, 'chinese_name': '', 'english_name': 'N/A', 'cas': 'N/A', 'formula': formula}
+        return {'smiles': canonical, 'chinese_name': chinese_name, 'english_name': 'N/A', 'cas': 'N/A', 'formula': formula}
     
     # 尝试从映射表中查找
     if user_input in MOLECULE_MAP:
@@ -1554,6 +1564,16 @@ def predict_boiling_point(user_input):
             # 输入是SMILES，直接生成化学式
             smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
             formula = generate_chemical_formula(mol)
+            # 从 resolve_molecule_input 获取分子信息
+            result_info = resolve_molecule_input(smiles)
+            if result_info:
+                chinese_name = result_info.get('chinese_name', '')
+                en = result_info.get('english_name', '')
+                cas = result_info.get('cas', '')
+            else:
+                chinese_name = ''
+                en = ''
+                cas = ''
         else:
             # 解析用户输入（中文名、英文名、化学式、CAS No）
             result = resolve_molecule_input(user_input)
@@ -1569,8 +1589,9 @@ def predict_boiling_point(user_input):
                 return {'is_fuzzy_search': True, 'user_query': result['english_name'].replace('FUZZY_SEARCH:', ''), 'suggestions': result['cas']}
             
             smiles = result['smiles']
-            en = result['english_name']
-            cas = result['cas']
+            chinese_name = result.get('chinese_name', '')
+            en = result.get('english_name', '')
+            cas = result.get('cas', '')
             
             # 生成化学式
             mol = Chem.MolFromSmiles(smiles)
@@ -1595,9 +1616,9 @@ def predict_boiling_point(user_input):
         if result:
             result['smiles'] = smiles
             result['formula'] = formula
-            result['chinese_name'] = result.get('chinese_name', '')
-            result['english_name'] = result.get('english_name', en)
-            result['cas'] = result.get('cas', cas)
+            result['chinese_name'] = chinese_name
+            result['english_name'] = en
+            result['cas'] = cas
         return result
     except Exception as e:
         print(f"predict_boiling_point error: {e}")
