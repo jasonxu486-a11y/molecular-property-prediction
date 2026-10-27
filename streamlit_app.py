@@ -1016,9 +1016,28 @@ def resolve_molecule_input(user_input):
             formula = generate_chemical_formula(mol)
             # 尝试从 PubChem 获取更多信息
             pubchem = lookup_pubchem(smiles)
+            
+            # 判断输入类型并设置 chinese_name
+            chinese_name = ''
+            if user_input in CHINESE_TO_ENGLISH:
+                # 输入是中文名
+                chinese_name = user_input
+            elif user_input.lower() in [k.lower() for k in CHINESE_TO_ENGLISH.keys()]:
+                # 输入是中文名的大小写变体
+                for cn in CHINESE_TO_ENGLISH.keys():
+                    if cn.lower() == user_input.lower():
+                        chinese_name = cn
+                        break
+            else:
+                # 尝试从 CHINESE_TO_ENGLISH 反向查找英文名对应的中文名
+                for cn, en in CHINESE_TO_ENGLISH.items():
+                    if en.lower() == user_input.lower():
+                        chinese_name = cn
+                        break
+            
             if pubchem:
-                return {'smiles': smiles, 'chinese_name': user_input if user_input in CHINESE_TO_ENGLISH else '', 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
-            return {'smiles': smiles, 'chinese_name': user_input if user_input in CHINESE_TO_ENGLISH else '', 'english_name': '', 'cas': '', 'formula': formula}
+                return {'smiles': smiles, 'chinese_name': chinese_name, 'english_name': pubchem[1], 'cas': pubchem[2], 'formula': formula}
+            return {'smiles': smiles, 'chinese_name': chinese_name, 'english_name': '', 'cas': '', 'formula': formula}
     
     # 尝试不区分大小写的英文名匹配
     lower_input = user_input.lower()
